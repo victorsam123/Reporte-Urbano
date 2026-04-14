@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios Administrativos{% endblock %}
+{% block page_title %}Usuarios Administrativos{% endblock %}
+{% block page_subtitle %}Gestión de cuentas con acceso al panel del sistema{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ url_for('crear_usuario_admin_route') }}" class="btn-top btn-primary">+ Nuevo usuario</a>
+<a href="{{ url_for('logout') }}" class="btn-top btn-light">Cerrar sesión</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 22px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .table-header h3 {
+        font-size: 20px;
+        color: #0f172a;
+        margin-bottom: 6px;
+    }
+
+    .table-header p {
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+    }
+
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 950px;
+    }
+
+    .users-table th,
+    .users-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        font-size: 14px;
+    }
+
+    .users-table th {
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .badge-admin {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .badge-activo {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-inactivo {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .actions-cell {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .btn-action {
+        text-decoration: none;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-edit {
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        color: white;
+    }
+
+    .btn-delete {
+        background: linear-gradient(135deg, #dc2626, #f87171);
+        color: white;
+    }
+
+    .empty-box {
+        padding: 30px 20px;
+        text-align: center;
+        color: #64748b;
+        font-size: 14px;
+        line-height: 1.8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h3>Listado de usuarios</h3>
+        <p>Desde aquí puedes visualizar, editar o eliminar las cuentas administrativas del sistema.</p>
+    </div>
+
+    {% if usuarios %}
+        <div class="table-wrapper">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Fecha de creación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td>{{ u.nombre }}</td>
+                        <td>{{ u.usuario }}</td>
+                        <td><span class="badge badge-admin">{{ u.rol }}</span></td>
+                        <td>
+                            {% if u.activo == 1 %}
+                                <span class="badge badge-activo">Activo</span>
+                            {% else %}
+                                <span class="badge badge-inactivo">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.fecha_creacion }}</td>
+                        <td>
+                            <div class="actions-cell">
+                                <a href="{{ url_for('editar_usuario_admin', usuario_id=u.id) }}" class="btn-action btn-edit">
+                                    Editar
+                                </a>
+
+                                <form method="POST" action="{{ url_for('eliminar_usuario_admin', usuario_id=u.id) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este usuario?');">
+                                    <button type="submit" class="btn-action btn-delete">Eliminar</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-box">
+            No hay usuarios registrados en este momento.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

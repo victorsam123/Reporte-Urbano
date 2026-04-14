@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes{% endblock %}
+{% block page_title %}Listado de Reportes{% endblock %}
+{% block page_subtitle %}Consulta general de incidencias registradas por los ciudadanos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 22px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .table-header h3 {
+        font-size: 20px;
+        color: #0f172a;
+        margin-bottom: 6px;
+    }
+
+    .table-header p {
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 980px;
+    }
+
+    .report-table th,
+    .report-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        font-size: 14px;
+    }
+
+    .report-table th {
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .badge-pendiente {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-realizado {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-alta {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-media {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .badge-baja {
+        background: #e2e8f0;
+        color: #334155;
+    }
+
+    .btn-view {
+        text-decoration: none;
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h3>Reportes ciudadanos</h3>
+        <p>Visualiza todos los casos registrados dentro del sistema.</p>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Teléfono</th>
+                    <th>Tipo</th>
+                    <th>Prioridad</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reporte in reportes %}
+                <tr>
+                    <td>{{ reporte.id }}</td>
+                    <td>{{ reporte.nombre }}</td>
+                    <td>{{ reporte.telefono }}</td>
+                    <td>{{ reporte.tipo }}</td>
+                    <td>
+                        {% if reporte.prioridad == 'Alta' %}
+                            <span class="badge badge-alta">Alta</span>
+                        {% elif reporte.prioridad == 'Media' %}
+                            <span class="badge badge-media">Media</span>
+                        {% else %}
+                            <span class="badge badge-baja">Baja</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if reporte.estado == 'Pendiente' %}
+                            <span class="badge badge-pendiente">Pendiente</span>
+                        {% else %}
+                            <span class="badge badge-realizado">Realizado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ reporte.fecha }}</td>
+                    <td>
+                        <a href="{{ url_for('detalle_reporte', reporte_id=reporte.id) }}" class="btn-view">Ver detalle</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

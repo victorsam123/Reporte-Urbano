@@ -1,0 +1,937 @@
+{% extends "base.html" %}
+
+{% block title %}Estadísticas{% endblock %}
+{% block page_title %}Estadísticas del Sistema{% endblock %}
+{% block page_subtitle %}Resumen general de reportes, estados y prioridades{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 22px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+
+    .stat-card::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 5px;
+    }
+
+    .card-total::before { background: linear-gradient(90deg, #1d4ed8, #38bdf8); }
+    .card-pendientes::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .card-realizados::before { background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .card-alta::before { background: linear-gradient(90deg, #dc2626, #fb7185); }
+    .card-media::before { background: linear-gradient(90deg, #2563eb, #60a5fa); }
+    .card-baja::before { background: linear-gradient(90deg, #475569, #94a3b8); }
+
+    .stat-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        gap: 12px;
+    }
+
+    .stat-label {
+        font-size: 13px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .stat-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        background: #f8fafc;
+    }
+
+    .stat-number {
+        font-size: 38px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1;
+        margin-bottom: 10px;
+    }
+
+    .stat-description {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    .panel-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 22px;
+    }
+
+    .card-box {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        padding: 24px;
+    }
+
+    .card-box h3 {
+        font-size: 20px;
+        margin-bottom: 8px;
+        color: #0f172a;
+    }
+
+    .card-box p {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 18px;
+        line-height: 1.7;
+    }
+
+    .mini-bar-group {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .mini-bar-item {
+        display: grid;
+        grid-template-columns: 140px 1fr 50px;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .mini-bar-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .mini-bar-track {
+        width: 100%;
+        height: 14px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .mini-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #1d4ed8, #38bdf8);
+    }
+
+    .mini-bar-value {
+        text-align: right;
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .list-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .list-table th,
+    .list-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        font-size: 14px;
+    }
+
+    .list-table th {
+        background: #f8fafc;
+        font-weight: 700;
+        color: #334155;
+    }
+
+    .empty-box {
+        padding: 24px;
+        text-align: center;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .chart-card {
+    margin-top: 24px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+}
+
+.chart-card h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+
+.chart-card p {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 20px;
+    line-height: 1.7;
+}
+
+.bar-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 320px;
+    padding: 20px 10px 10px;
+    border-bottom: 2px solid #cbd5e1;
+    overflow-x: auto;
+}
+
+.bar-item {
+    min-width: 95px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.bar-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.bar-column-wrap {
+    width: 100%;
+    height: 220px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.bar-column {
+    width: 58px;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(180deg, #38bdf8, #1d4ed8);
+    box-shadow: 0 10px 20px rgba(29, 78, 216, 0.20);
+    transition: transform .2s ease, opacity .2s ease;
+}
+
+.bar-column:hover {
+    transform: translateY(-4px);
+    opacity: 0.95;
+}
+
+.bar-label {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    line-height: 1.5;
+    word-break: break-word;
+}
+.estado-chart-card {
+    margin-top: 24px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+}
+
+.estado-chart-card h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+
+.estado-chart-card p {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 20px;
+    line-height: 1.7;
+}
+
+.estado-chart-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    align-items: center;
+}
+
+.donut-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.donut-chart {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donut-chart::before {
+    content: "";
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.donut-center {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+.donut-center .total {
+    font-size: 30px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+}
+
+.donut-center .label {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.estado-legend {
+    display: grid;
+    gap: 14px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 14px 16px;
+}
+
+.legend-color {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.legend-color.pendiente {
+    background: #f59e0b;
+}
+
+.legend-color.realizado {
+    background: #22c55e;
+}
+
+.legend-content {
+    flex: 1;
+}
+
+.legend-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.legend-text {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.6;
+}
+
+.legend-number {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+@media (max-width: 900px) {
+    .estado-chart-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .bar-chart {
+        justify-content: flex-start;
+    }
+
+    .bar-item {
+        min-width: 86px;
+    }
+
+    .bar-column {
+        width: 46px;
+    }
+}
+
+    @media (max-width: 1000px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .panel-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .mini-bar-item {
+            grid-template-columns: 1fr;
+        }
+
+        }
+        .kpi-extra {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.exec-panel {
+    margin-top: 24px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+}
+
+.exec-panel h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+
+.exec-panel p {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 18px;
+    line-height: 1.7;
+}
+.findings-panel {
+    margin-top: 24px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+}
+
+.findings-panel h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+
+.findings-panel p {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 18px;
+    line-height: 1.7;
+}
+
+.findings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.finding-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.finding-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+}
+
+.finding-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+
+.finding-subtext {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.7;
+}
+
+.interpretation-box {
+    background: linear-gradient(135deg, #eff6ff, #f8fafc);
+    border: 1px solid #bfdbfe;
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.interpretation-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-bottom: 8px;
+}
+
+.interpretation-text {
+    font-size: 14px;
+    color: #1e40af;
+    line-height: 1.8;
+}
+
+@media (max-width: 900px) {
+    .findings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.exec-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+}
+
+.exec-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.exec-box .exec-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 8px;
+}
+
+.exec-box .exec-number {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.exec-box .exec-desc {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.6;
+}
+
+.percent-badge {
+    display: inline-block;
+    margin-top: 8px;
+    background: #e0f2fe;
+    color: #0c4a6e;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .exec-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .exec-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% set total_general = resumen.total_reportes if resumen.total_reportes > 0 else 1 %}
+{% set pct_pendientes = (resumen.pendientes / total_general * 100)|round(1) %}
+{% set pct_realizados = (resumen.realizados / total_general * 100)|round(1) %}
+{% set pct_alta = (resumen.alta / total_general * 100)|round(1) %}
+{% set pct_media = (resumen.media / total_general * 100)|round(1) %}
+{% set pct_baja = (resumen.baja / total_general * 100)|round(1) %}
+{% set tipo_frecuente = por_tipo[0].tipo if por_tipo else "Sin datos" %}
+{% set total_tipo_frecuente = por_tipo[0].total if por_tipo else 0 %}
+
+{% if resumen.pendientes >= resumen.realizados %}
+    {% set estado_predominante = "Pendiente" %}
+    {% set estado_predominante_total = resumen.pendientes %}
+{% else %}
+    {% set estado_predominante = "Realizado" %}
+    {% set estado_predominante_total = resumen.realizados %}
+{% endif %}
+
+{% if resumen.alta >= resumen.media and resumen.alta >= resumen.baja %}
+    {% set prioridad_dominante = "Alta" %}
+    {% set prioridad_dominante_total = resumen.alta %}
+{% elif resumen.media >= resumen.alta and resumen.media >= resumen.baja %}
+    {% set prioridad_dominante = "Media" %}
+    {% set prioridad_dominante_total = resumen.media %}
+{% else %}
+    {% set prioridad_dominante = "Baja" %}
+    {% set prioridad_dominante_total = resumen.baja %}
+{% endif %}
+
+<div class="stats-grid">
+    <div class="stat-card card-total">
+        <div class="stat-top">
+            <div class="stat-label">Total de reportes</div>
+            <div class="stat-icon">📋</div>
+        </div>
+        <div class="stat-number">{{ resumen.total_reportes }}</div>
+        <div class="stat-description">
+            Cantidad total de incidencias registradas dentro del sistema.
+        </div>
+    </div>
+
+    <div class="stat-card card-pendientes">
+        <div class="stat-top">
+            <div class="stat-label">Pendientes</div>
+            <div class="stat-icon">⏳</div>
+        </div>
+        <div class="stat-number">{{ resumen.pendientes }}</div>
+        <div class="stat-description">
+    Reportes que aún requieren atención o seguimiento administrativo.
+</div>
+<div class="kpi-extra">{{ pct_pendientes }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-realizados">
+        <div class="stat-top">
+            <div class="stat-label">Realizados</div>
+            <div class="stat-icon">✅</div>
+        </div>
+        <div class="stat-number">{{ resumen.realizados }}</div>
+        <div class="stat-description">
+    Incidencias críticas que requieren intervención prioritaria.
+</div>
+<div class="kpi-extra">{{ pct_alta }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-alta">
+        <div class="stat-top">
+            <div class="stat-label">Prioridad alta</div>
+            <div class="stat-icon">🔴</div>
+        </div>
+        <div class="stat-number">{{ resumen.alta }}</div>
+        <div class="stat-description">
+    Incidencias críticas que requieren intervención prioritaria.
+</div>
+<div class="kpi-extra">{{ pct_alta }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-media">
+        <div class="stat-top">
+            <div class="stat-label">Prioridad media</div>
+            <div class="stat-icon">🔵</div>
+        </div>
+        <div class="stat-number">{{ resumen.media }}</div>
+       <div class="stat-description">
+    Casos de impacto moderado dentro de la gestión operativa.
+</div>
+<div class="kpi-extra">{{ pct_media }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-baja">
+        <div class="stat-top">
+            <div class="stat-label">Prioridad baja</div>
+            <div class="stat-icon">⚪</div>
+        </div>
+        <div class="stat-number">{{ resumen.baja }}</div>
+        <div class="stat-description">
+    Reportes informativos o de menor urgencia operativa.
+</div>
+<div class="kpi-extra">{{ pct_baja }}% del total general</div>
+    </div>
+</div>
+
+<div class="panel-grid">
+    <div class="card-box">
+        <h3>Distribución por tipo de incidencia</h3>
+        <p>
+            Resumen de la cantidad de reportes agrupados por tipo de problema ciudadano.
+        </p>
+
+        {% if por_tipo %}
+            {% set max_total = por_tipo[0].total if por_tipo[0].total > 0 else 1 %}
+            <div class="mini-bar-group">
+                {% for item in por_tipo %}
+                <div class="mini-bar-item">
+                    <div class="mini-bar-label">{{ item.tipo }}</div>
+                    <div class="mini-bar-track">
+                        <div class="mini-bar-fill" style="width: {{ (item.total / max_total * 100)|round(0) }}%;"></div>
+                    </div>
+                    <div class="mini-bar-value">{{ item.total }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-box">
+                Aún no existen datos suficientes para generar estadísticas.
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card-box">
+        <h3>Resumen tabular</h3>
+        <p>
+            Vista rápida de los tipos de incidencia más frecuentes dentro del sistema.
+        </p>
+
+        {% if por_tipo %}
+        <table class="list-table">
+    <thead>
+        <tr>
+            <th>Tipo</th>
+            <th>Total</th>
+            <th>Porcentaje</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in por_tipo %}
+        <tr>
+            <td>{{ item.tipo }}</td>
+            <td>{{ item.total }}</td>
+            <td>{{ (item.total / total_general * 100)|round(1) }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+        {% else %}
+            <div class="empty-box">
+                No hay información disponible.
+            </div>
+        {% endif %}
+    </div>
+</div>
+<div class="chart-card">
+    <h3>Gráfico visual por tipo de incidencia</h3>
+    <p>
+        Representación comparativa de los tipos de reportes registrados en el sistema.
+        La altura de cada columna refleja la cantidad total de incidencias por categoría.
+    </p>
+
+    {% if por_tipo %}
+        {% set max_total = por_tipo[0].total if por_tipo[0].total > 0 else 1 %}
+        <div class="bar-chart">
+            {% for item in por_tipo %}
+            <div class="bar-item">
+                <div class="bar-value">{{ item.total }}</div>
+
+                <div class="bar-column-wrap">
+                    <div
+                        class="bar-column"
+                        style="height: {{ (item.total / max_total * 100)|round(0) }}%;"
+                        title="{{ item.tipo }}: {{ item.total }}"
+                    ></div>
+                </div>
+
+                <div class="bar-label">{{ item.tipo }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-box">
+            Aún no existen datos suficientes para generar el gráfico.
+        </div>
+    {% endif %}
+</div>
+{% set total_general = resumen.total_reportes if resumen.total_reportes > 0 else 1 %}
+{% set porcentaje_pendientes = (resumen.pendientes / total_general * 100)|round(1) %}
+{% set porcentaje_realizados = (resumen.realizados / total_general * 100)|round(1) %}
+
+<div class="estado-chart-card">
+    <h3>Distribución general por estado</h3>
+    <p>
+        Visualización del comportamiento global del sistema según la proporción
+        de reportes pendientes y realizados.
+    </p>
+
+    {% if resumen.total_reportes > 0 %}
+    <div class="estado-chart-grid">
+        <div class="donut-wrapper">
+            <div
+                class="donut-chart"
+                style="background: conic-gradient(
+                    #f59e0b 0% {{ porcentaje_pendientes }}%,
+                    #22c55e {{ porcentaje_pendientes }}% 100%
+                );"
+            >
+                <div class="donut-center">
+                    <div class="total">{{ resumen.total_reportes }}</div>
+                    <div class="label">Reportes</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="estado-legend">
+            <div class="legend-item">
+                <div class="legend-color pendiente"></div>
+                <div class="legend-content">
+                    <div class="legend-title">Pendientes</div>
+                    <div class="legend-text">
+                        Representan los casos que siguen en proceso de atención.
+                    </div>
+                </div>
+                <div class="legend-number">
+                    {{ resumen.pendientes }}<br>
+                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ porcentaje_pendientes }}%</span>
+                </div>
+            </div>
+
+            <div class="legend-item">
+                <div class="legend-color realizado"></div>
+                <div class="legend-content">
+                    <div class="legend-title">Realizados</div>
+                    <div class="legend-text">
+                        Corresponden a los reportes finalizados dentro del sistema.
+                    </div>
+                </div>
+                <div class="legend-number">
+                    {{ resumen.realizados }}<br>
+                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ porcentaje_realizados }}%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-box">
+        Aún no existen reportes registrados para generar la distribución por estado.
+    </div>
+    {% endif %}
+</div>
+<div class="exec-panel">
+    <h3>Indicadores ejecutivos</h3>
+    <p>
+        Vista rápida de participación relativa para apoyar el análisis general del sistema.
+    </p>
+
+    <div class="exec-grid">
+        <div class="exec-box">
+            <div class="exec-title">Pendientes</div>
+            <div class="exec-number">{{ pct_pendientes }}%</div>
+            <div class="exec-desc">Participación de casos aún no resueltos.</div>
+            <span class="percent-badge">{{ resumen.pendientes }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Realizados</div>
+            <div class="exec-number">{{ pct_realizados }}%</div>
+            <div class="exec-desc">Proporción de reportes ya finalizados.</div>
+            <span class="percent-badge">{{ resumen.realizados }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Prioridad alta</div>
+            <div class="exec-number">{{ pct_alta }}%</div>
+            <div class="exec-desc">Carga crítica dentro del total de incidencias.</div>
+            <span class="percent-badge">{{ resumen.alta }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Prioridad media</div>
+            <div class="exec-number">{{ pct_media }}%</div>
+            <div class="exec-desc">Nivel operativo intermedio del sistema.</div>
+            <span class="percent-badge">{{ resumen.media }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Prioridad baja</div>
+            <div class="exec-number">{{ pct_baja }}%</div>
+            <div class="exec-desc">Incidencias de menor urgencia relativa.</div>
+            <span class="percent-badge">{{ resumen.baja }} casos</span>
+        </div>
+    </div>
+</div>
+<div class="findings-panel">
+    <h3>Hallazgos automáticos</h3>
+    <p>
+        Resumen interpretativo generado a partir del comportamiento actual de los datos registrados en el sistema.
+    </p>
+
+    <div class="findings-grid">
+        <div class="finding-box">
+            <div class="finding-label">Incidencia más frecuente</div>
+            <div class="finding-value">{{ tipo_frecuente }}</div>
+            <div class="finding-subtext">
+                Registra {{ total_tipo_frecuente }} caso(s), siendo el tipo de reporte más repetido.
+            </div>
+        </div>
+
+        <div class="finding-box">
+            <div class="finding-label">Estado predominante</div>
+            <div class="finding-value">{{ estado_predominante }}</div>
+            <div class="finding-subtext">
+                Actualmente concentra {{ estado_predominante_total }} caso(s) dentro del sistema.
+            </div>
+        </div>
+
+        <div class="finding-box">
+            <div class="finding-label">Prioridad dominante</div>
+            <div class="finding-value">{{ prioridad_dominante }}</div>
+            <div class="finding-subtext">
+                Acumula {{ prioridad_dominante_total }} caso(s) y representa la carga más visible.
+            </div>
+        </div>
+    </div>
+
+    <div class="interpretation-box">
+        <div class="interpretation-title">Interpretación general</div>
+        <div class="interpretation-text">
+            Los datos actuales muestran que la incidencia más frecuente es
+            <strong>{{ tipo_frecuente }}</strong>, mientras que el estado predominante es
+            <strong>{{ estado_predominante }}</strong>.
+            Además, la prioridad con mayor presencia es
+            <strong>{{ prioridad_dominante }}</strong>, lo que permite identificar con mayor claridad
+            el perfil operativo del sistema y apoyar la toma de decisiones administrativas.
+        </div>
+    </div>
+</div>
+
+{% endblock %}

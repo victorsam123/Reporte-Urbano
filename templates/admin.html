@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Administrativo | Sistema de Reporte Urbano{% endblock %}
+{% block page_title %}Panel Administrativo{% endblock %}
+{% block page_subtitle %}Resumen general del sistema y acceso rápido a la gestión de incidencias{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 20px;
+        padding: 22px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+    }
+
+    .stat-card.total::before { background: linear-gradient(90deg, #1d4ed8, #38bdf8); }
+    .stat-card.pending::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .stat-card.done::before { background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .stat-card.users::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+
+    .stat-label {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .stat-number {
+        font-size: 34px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1;
+    }
+
+    .stat-extra {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #64748b;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 22px;
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+    }
+
+    .section-subtitle {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 18px;
+        line-height: 1.7;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+
+    .action-card {
+        display: block;
+        text-decoration: none;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 18px;
+        transition: all 0.2s ease;
+    }
+
+    .action-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        border-color: #93c5fd;
+    }
+
+    .action-icon {
+        font-size: 28px;
+        margin-bottom: 10px;
+    }
+
+    .action-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 6px;
+    }
+
+    .action-text {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.6;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        border-radius: 16px;
+    }
+
+    .dashboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 720px;
+    }
+
+    .dashboard-table th,
+    .dashboard-table td {
+        text-align: left;
+        padding: 14px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 14px;
+    }
+
+    .dashboard-table th {
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .badge-pendiente {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-realizado {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-alta {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-media {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .badge-baja {
+        background: #e2e8f0;
+        color: #334155;
+    }
+
+    .empty-box {
+        text-align: center;
+        padding: 30px 20px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        color: #64748b;
+        font-size: 14px;
+        line-height: 1.8;
+    }
+
+    .btn-link {
+        display: inline-block;
+        text-decoration: none;
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        color: white;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .btn-link:hover {
+        opacity: 0.95;
+    }
+
+    @media (max-width: 1100px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .stats-grid,
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .stat-number {
+            font-size: 28px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+
+<a href="{{ url_for('logout') }}" class="btn-top btn-light">Cerrar sesión</a>
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card total">
+        <div class="stat-label">Total de reportes</div>
+        <div class="stat-number">{{ total_reportes if total_reportes is defined else 0 }}</div>
+        <div class="stat-extra">Incidencias registradas en el sistema</div>
+    </div>
+
+    <div class="stat-card pending">
+        <div class="stat-label">Pendientes</div>
+        <div class="stat-number">{{ total_pendientes if total_pendientes is defined else 0 }}</div>
+        <div class="stat-extra">Reportes que requieren atención</div>
+    </div>
+
+    <div class="stat-card done">
+        <div class="stat-label">Realizados</div>
+        <div class="stat-number">{{ total_realizados if total_realizados is defined else 0 }}</div>
+        <div class="stat-extra">Casos ya finalizados</div>
+    </div>
+
+    <div class="stat-card users">
+        <div class="stat-label">Usuarios admin</div>
+        <div class="stat-number">{{ total_usuarios if total_usuarios is defined else 1 }}</div>
+        <div class="stat-extra">Accesos habilitados al panel</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="section-title">Reportes recientes</div>
+        <div class="section-subtitle">
+            Visualiza un resumen rápido de los últimos reportes registrados en la plataforma.
+        </div>
+
+        {% if reportes is defined and reportes %}
+            <div class="table-wrapper">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Ciudadano</th>
+                            <th>Tipo</th>
+                            <th>Prioridad</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reporte in reportes[:8] %}
+                        <tr>
+                            <td>{{ reporte.id }}</td>
+                            <td>{{ reporte.nombre }}</td>
+                            <td>{{ reporte.tipo }}</td>
+                            <td>
+                                {% if reporte.prioridad == 'Alta' %}
+                                    <span class="badge badge-alta">Alta</span>
+                                {% elif reporte.prioridad == 'Media' %}
+                                    <span class="badge badge-media">Media</span>
+                                {% else %}
+                                    <span class="badge badge-baja">Baja</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reporte.estado == 'Pendiente' %}
+                                    <span class="badge badge-pendiente">Pendiente</span>
+                                {% else %}
+                                    <span class="badge badge-realizado">Realizado</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ reporte.fecha }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-box">
+                Aún no hay reportes cargados en el sistema.<br>
+                Cuando se registren incidencias, aparecerán aquí.
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="section-title">Accesos rápidos</div>
+        <div class="section-subtitle">
+            Funciones principales del sistema para trabajar de forma más ágil.
+        </div>
+
+        <div class="quick-actions">
+            <a href="#" class="action-card">
+                <div class="action-icon">📌</div>
+                <div class="action-title">Pendientes</div>
+                <div class="action-text">Consulta los reportes que todavía no fueron resueltos.</div>
+            </a>
+
+            <a href="#" class="action-card">
+                <div class="action-icon">✅</div>
+                <div class="action-title">Realizados</div>
+                <div class="action-text">Revisa las incidencias ya finalizadas y cerradas.</div>
+            </a>
+
+            <a href="{{ url_for('estadisticas') }}" class="action-card">
+    <div class="action-icon">📊</div>
+    <div class="action-title">Estadísticas</div>
+    <div class="action-text">Analiza el comportamiento general del sistema.</div>
+</a>
+
+            <a href="#" class="action-card">
+                <div class="action-icon">👤</div>
+                <div class="action-title">Usuarios</div>
+                <div class="action-text">Administra accesos y cuentas del panel administrativo.</div>
+            </a>
+        </div>
+
+        <div style="margin-top: 18px;">
+            <a href="#" class="btn-link">Ver módulo completo</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

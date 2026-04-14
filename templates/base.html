@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Reporte Urbano{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-primario: #0f172a;
+            --color-secundario: #1d4ed8;
+            --color-acento: #38bdf8;
+            --color-fondo: #f1f5f9;
+            --color-blanco: #ffffff;
+            --color-texto: #1e293b;
+            --color-gris: #64748b;
+            --color-borde: #cbd5e1;
+            --color-exito: #16a34a;
+            --color-error: #dc2626;
+            --color-alerta: #d97706;
+            --sombra-card: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --radio: 18px;
+            --sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--color-fondo);
+            color: var(--color-texto);
+            min-height: 100vh;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, #0f172a, #1e3a8a);
+            color: white;
+            padding: 28px 18px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            box-shadow: 8px 0 30px rgba(15, 23, 42, 0.12);
+            overflow-y: auto;
+        }
+
+        .brand {
+            margin-bottom: 30px;
+            padding: 0 8px;
+        }
+
+        .brand small {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.10);
+            font-size: 11px;
+            letter-spacing: .3px;
+            margin-bottom: 12px;
+        }
+
+        .brand h1 {
+            font-size: 22px;
+            line-height: 1.25;
+            font-weight: 700;
+        }
+
+        .brand p {
+            margin-top: 10px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.78);
+            line-height: 1.6;
+        }
+
+        .user-box {
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 18px;
+            padding: 14px;
+            margin: 22px 0 24px;
+        }
+
+        .user-box .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: rgba(255,255,255,0.68);
+            margin-bottom: 6px;
+        }
+
+        .user-box .name {
+            font-size: 15px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .user-box .role {
+            margin-top: 4px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.75);
+        }
+
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .menu a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+            padding: 13px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background .2s ease, transform .2s ease;
+        }
+
+        .menu a:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateX(3px);
+        }
+
+        .menu a.active {
+            background: rgba(56, 189, 248, 0.18);
+            border: 1px solid rgba(56, 189, 248, 0.28);
+        }
+
+        .main {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar {
+            background: var(--color-blanco);
+            border-bottom: 1px solid #e2e8f0;
+            padding: 18px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        .topbar h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--color-primario);
+        }
+
+        .topbar p {
+            font-size: 13px;
+            color: var(--color-gris);
+            margin-top: 3px;
+        }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            padding: 11px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: .2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-secundario), var(--color-acento));
+            color: white;
+            box-shadow: 0 12px 24px rgba(29, 78, 216, .18);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-light {
+            background: #e2e8f0;
+            color: var(--color-primario);
+        }
+
+        .btn-light:hover {
+            background: #cbd5e1;
+        }
+
+        .content {
+            padding: 28px;
+        }
+
+        .flash-area {
+            margin-bottom: 22px;
+        }
+
+        .flash {
+            padding: 14px 16px;
+            border-radius: 14px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            border: 1px solid transparent;
+            box-shadow: var(--sombra-card);
+        }
+
+        .flash.success {
+            background: #dcfce7;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
+
+        .flash.error,
+        .flash.danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+
+        .flash.warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #fde68a;
+        }
+
+        .flash.info,
+        .flash.message {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #bfdbfe;
+        }
+
+        .card {
+            background: var(--color-blanco);
+            border-radius: var(--radio);
+            box-shadow: var(--sombra-card);
+            padding: 22px;
+        }
+
+        .page-header {
+            margin-bottom: 22px;
+        }
+
+        .page-header h3 {
+            font-size: 24px;
+            color: var(--color-primario);
+            margin-bottom: 6px;
+        }
+
+        .page-header p {
+            color: var(--color-gris);
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .footer {
+            margin-top: auto;
+            padding: 18px 28px 24px;
+            color: var(--color-gris);
+            font-size: 12px;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: var(--color-primario);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        @media (max-width: 980px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform .25s ease;
+                z-index: 20;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .menu-toggle {
+                display: inline-block;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .topbar,
+            .content,
+            .footer {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .topbar-actions {
+                width: 100%;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="layout">
+        {% if session.get('admin_logueado') %}
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <small>Panel Administrativo</small>
+                <h1>Reporte Urbano</h1>
+                <p>Gestión profesional de incidencias ciudadanas con control, seguimiento y administración centralizada.</p>
+            </div>
+
+            <div class="user-box">
+                <div class="label">Sesión activa</div>
+                <div class="name">{{ session.get('admin_nombre', 'Administrador') }}</div>
+                <div class="role">{{ session.get('admin_rol', 'admin')|capitalize }}</div>
+            </div>
+
+            <nav class="menu">
+    <a href="{{ url_for('admin') }}">🏠 <span>Dashboard</span></a>
+    <a href="{{ url_for('estadisticas') }}">📊 <span>Estadísticas</span></a>
+    <a href="{{ url_for('reportes_pendientes') }}">📌 <span>Pendientes</span></a>
+    <a href="{{ url_for('reportes_realizados') }}">✅ <span>Realizados</span></a>
+    <a href="{{ url_for('reportes') }}">🗂️ <span>Todos los reportes</span></a>
+    <a href="{{ url_for('usuarios_admin') }}">👤 <span>Usuarios</span></a>
+    <a href="{{ url_for('cambiar_clave') }}">🔒 <span>Cambiar contraseña</span></a>
+    <a href="{{ url_for('logout') }}">🚪 <span>Cerrar sesión</span></a>
+</nav>
+        </aside>
+        {% endif %}
+
+        <div class="main">
+            {% if session.get('admin_logueado') %}
+            <header class="topbar">
+                <div>
+                    <button class="menu-toggle" onclick="toggleSidebar()">Menú</button>
+                    <h2>{% block page_title %}Sistema de Reporte Urbano{% endblock %}</h2>
+                    <p>{% block page_subtitle %}Panel de administración y control del sistema{% endblock %}</p>
+                </div>
+
+                <div class="topbar-actions">
+                    {% block topbar_actions %}
+                    <a href="{{ url_for('logout') }}" class="btn-top btn-light">Cerrar sesión</a>
+                    {% endblock %}
+                </div>
+            </header>
+            {% endif %}
+
+            <main class="content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="flash-area">
+                            {% for category, message in messages %}
+                                <div class="flash {{ category }}">{{ message }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+
+            <footer class="footer">
+                Sistema Web de Reporte Urbano · Proyecto desarrollado con Flask y MySQL
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('open');
+            }
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmación de Reporte</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --color-primario: #0f172a;
+            --color-secundario: #1d4ed8;
+            --color-acento: #38bdf8;
+            --color-exito: #16a34a;
+            --color-fondo: #f1f5f9;
+            --color-blanco: #ffffff;
+            --color-texto: #1e293b;
+            --color-gris: #64748b;
+            --color-borde: #cbd5e1;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #eff6ff, #f8fafc);
+            min-height: 100vh;
+            color: var(--color-texto);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .confirmation-card {
+            width: 100%;
+            max-width: 880px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+            overflow: hidden;
+        }
+
+        .top-banner {
+            background: linear-gradient(135deg, #0f172a, #1d4ed8);
+            color: white;
+            padding: 34px 30px;
+            text-align: center;
+        }
+
+        .top-banner .icon {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.14);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+        }
+
+        .top-banner h1 {
+            font-size: 30px;
+            margin-bottom: 10px;
+        }
+
+        .top-banner p {
+            font-size: 14px;
+            line-height: 1.8;
+            color: rgba(255,255,255,0.92);
+            max-width: 620px;
+            margin: 0 auto;
+        }
+
+        .body-content {
+            padding: 30px;
+        }
+
+        .success-box {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            line-height: 1.8;
+            font-weight: 500;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 16px;
+        }
+
+        .info-item.full {
+            grid-column: 1 / -1;
+        }
+
+        .label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .value {
+            font-size: 15px;
+            color: #0f172a;
+            line-height: 1.8;
+            word-break: break-word;
+        }
+
+        .actions {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .btn {
+            display: inline-block;
+            text-decoration: none;
+            padding: 14px 20px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            transition: .2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+            color: white;
+            box-shadow: 0 12px 24px rgba(29, 78, 216, 0.22);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .note-box {
+            margin-top: 24px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 18px;
+            padding: 18px;
+            font-size: 14px;
+            color: #1e3a8a;
+            line-height: 1.8;
+        }
+
+        @media (max-width: 720px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .body-content,
+            .top-banner {
+                padding: 22px;
+            }
+
+            .top-banner h1 {
+                font-size: 25px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+.btn-mapa {
+    display: inline-block;
+    margin-top: 6px;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 10px 20px rgba(34, 197, 94, 0.25);
+    transition: .2s ease;
+}
+
+.btn-mapa:hover {
+    transform: translateY(-2px);
+}
+
+    </style>
+</head>
+<body>
+    <div class="confirmation-card">
+        <div class="top-banner">
+            <div class="icon">✓</div>
+            <h1>Reporte enviado correctamente</h1>
+            <p>
+                Su incidencia fue registrada en el sistema de manera exitosa.
+                A continuación puede visualizar el resumen del reporte y descargar su comprobante.
+            </p>
+        </div>
+
+        <div class="body-content">
+            <div class="success-box">
+                Su reporte fue registrado con el código:
+<strong style="color:#16a34a;">{{ reporte.codigo_reporte }}</strong>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="label">ID del reporte</div>
+                    <div class="value" style="font-weight:700; color:#16a34a;">
+    {{ reporte.codigo_reporte }}
+</div>
+                </div>
+
+                <div class="info-item">
+                    <div class="label">Estado</div>
+                    <div class="value">{{ reporte.estado }}</div>
+                </div>
+
+                <div class="info-item">
+                    <div class="label">Nombre</div>
+                    <div class="value">{{ reporte.nombre }}</div>
+                </div>
+
+                <div class="info-item">
+                    <div class="label">Teléfono</div>
+                    <div class="value">{{ reporte.telefono }}</div>
+                </div>
+
+                <div class="info-item">
+                    <div class="label">Correo</div>
+                    <div class="value">{{ reporte.correo }}</div>
+                </div>
+
+                <div class="info-item">
+                    <div class="label">Tipo de incidencia</div>
+                    <div class="value">{{ reporte.tipo }}</div>
+                </div>
+
+                <div class="info-item">
+                    <div class="label">Prioridad</div>
+                    <div class="value">{{ reporte.prioridad }}</div>
+                </div>
+
+                <div class="info-item full">
+    <div class="label">Ubicación</div>
+    <div class="value">{{ reporte.ubicacion }}</div>
+</div>
+
+{% if reporte.mapa_url %}
+<div class="info-item full">
+    <div class="label">Ubicación en mapa</div>
+    <div class="value">
+        <a href="{{ reporte.mapa_url }}" target="_blank" class="btn-mapa">
+            📍 Ver en Google Maps
+        </a>
+    </div>
+</div>
+{% endif %}
+
+                <div class="info-item full">
+                    <div class="label">Ubicación</div>
+                    <div class="value">{{ reporte.ubicacion }}</div>
+                </div>
+
+                <div class="info-item full">
+                    <div class="label">Descripción</div>
+                    <div class="value">{{ reporte.descripcion }}</div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <a href="{{ url_for('descargar_comprobante', reporte_id=reporte.id) }}" class="btn btn-primary">
+                    Descargar comprobante PDF
+                </a>
+
+                <a href="{{ url_for('ciudadano') }}" class="btn btn-secondary">
+                    Realizar otro reporte
+                </a>
+            </div>
+
+            <div class="note-box">
+                Guarde su número de reporte o descargue el comprobante en PDF como constancia de recepción.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

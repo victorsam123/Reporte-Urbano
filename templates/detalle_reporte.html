@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle del Reporte{% endblock %}
+{% block page_title %}Detalle del Reporte{% endblock %}
+{% block page_subtitle %}Información completa de la incidencia registrada{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ url_for('reportes') }}" class="btn-top btn-light">Volver</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: white;
+        border-radius: 22px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        padding: 28px;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .detail-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 16px;
+    }
+
+    .detail-item.full {
+        grid-column: 1 / -1;
+    }
+
+    .detail-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .detail-value {
+        font-size: 15px;
+        color: #0f172a;
+        line-height: 1.8;
+    }
+
+    .action-box {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn-action {
+        border: none;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-realizado {
+        background: linear-gradient(135deg, #16a34a, #4ade80);
+        color: white;
+    }
+
+    .btn-pendiente {
+        background: linear-gradient(135deg, #d97706, #fbbf24);
+        color: white;
+    }
+
+    .status-box {
+        margin-top: 22px;
+        padding: 16px;
+        border-radius: 16px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .status-pendiente {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-realizado {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .observacion-card,
+    .foto-card {
+        margin-top: 26px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 22px;
+    }
+
+    .observacion-card h3,
+    .foto-card h3 {
+        font-size: 18px;
+        color: #0f172a;
+        margin-bottom: 8px;
+    }
+
+    .observacion-card p,
+    .foto-card p {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 16px;
+        line-height: 1.7;
+    }
+
+    .textarea-control,
+    .file-control {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        padding: 14px;
+        font-size: 14px;
+        outline: none;
+        transition: .2s ease;
+    }
+
+    .textarea-control {
+        min-height: 140px;
+        resize: vertical;
+    }
+
+    .textarea-control:focus,
+    .file-control:focus {
+        border-color: #1d4ed8;
+        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.10);
+    }
+
+    .btn-save {
+        margin-top: 14px;
+        border: none;
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        color: white;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .imagenes-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 24px;
+    }
+
+    .imagen-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 16px;
+    }
+
+    .imagen-box h4 {
+        font-size: 15px;
+        color: #0f172a;
+        margin-bottom: 12px;
+    }
+
+    .imagen-box img {
+        width: 100%;
+        max-height: 320px;
+        object-fit: cover;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+    }
+
+    .sin-imagen {
+        background: #e2e8f0;
+        color: #475569;
+        border-radius: 14px;
+        padding: 40px 16px;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+        .imagenes-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+.btn-mapa {
+    display: inline-block;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(34, 197, 94, 0.25);
+    transition: .2s ease;
+}
+
+.btn-mapa:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 22px rgba(34, 197, 94, 0.35);
+}
+.whatsapp-card {
+    margin-top: 26px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 22px;
+}
+
+.whatsapp-card h3 {
+    font-size: 18px;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+
+.whatsapp-card p {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 16px;
+    line-height: 1.7;
+}
+
+.whatsapp-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-whatsapp {
+    display: inline-block;
+    text-decoration: none;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 10px 22px rgba(34, 197, 94, 0.22);
+    transition: .2s ease;
+}
+
+.btn-whatsapp:hover {
+    transform: translateY(-2px);
+}
+
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-card">
+    <div class="detail-grid">
+        <div class="detail-item">
+            <div class="detail-label">ID</div>
+            <div class="detail-value" style="font-weight:700; color:#16a34a;">
+    {{ reporte.codigo_reporte }}
+</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Estado</div>
+            <div class="detail-value">{{ reporte.estado }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Nombre</div>
+            <div class="detail-value">{{ reporte.nombre }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Teléfono</div>
+            <div class="detail-value">{{ reporte.telefono }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Correo</div>
+            <div class="detail-value">{{ reporte.correo }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Tipo</div>
+            <div class="detail-value">{{ reporte.tipo }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Prioridad</div>
+            <div class="detail-value">{{ reporte.prioridad }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-label">Fecha</div>
+            <div class="detail-value">{{ reporte.fecha }}</div>
+        </div>
+
+        <div class="detail-item full">
+    <div class="detail-label">Ubicación</div>
+    <div class="detail-value">{{ reporte.ubicacion }}</div>
+</div>
+
+{% if reporte.mapa_url %}
+<div class="detail-item full">
+    <div class="detail-label">Ubicación en mapa</div>
+    <div class="detail-value">
+        <a href="{{ reporte.mapa_url }}" target="_blank" class="btn-mapa">
+            📍 Ver ubicación en Google Maps
+        </a>
+    </div>
+</div>
+{% endif %}
+
+        <div class="detail-item full">
+            <div class="detail-label">Descripción</div>
+            <div class="detail-value">{{ reporte.descripcion }}</div>
+        </div>
+
+        {% if reporte.fecha_finalizacion %}
+        <div class="detail-item">
+            <div class="detail-label">Fecha de finalización</div>
+            <div class="detail-value">{{ reporte.fecha_finalizacion }}</div>
+        </div>
+        {% endif %}
+
+        {% if reporte.hora_finalizacion %}
+        <div class="detail-item">
+            <div class="detail-label">Hora de finalización</div>
+            <div class="detail-value">{{ reporte.hora_finalizacion }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="imagenes-grid">
+        <div class="imagen-box">
+            <h4>Foto del problema</h4>
+            {% if reporte.foto_problema %}
+                <img src="{{ url_for('static', filename=reporte.foto_problema) }}" alt="Foto del problema">
+            {% else %}
+                <div class="sin-imagen">No se cargó imagen del problema.</div>
+            {% endif %}
+        </div>
+
+        <div class="imagen-box">
+            <h4>Foto de la solución</h4>
+            {% if reporte.foto_solucion %}
+                <img src="{{ url_for('static', filename=reporte.foto_solucion) }}" alt="Foto de la solución">
+            {% else %}
+                <div class="sin-imagen">Todavía no se cargó imagen de la solución.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if reporte.estado == 'Pendiente' %}
+        <div class="status-box status-pendiente">
+            Este reporte aún se encuentra pendiente de resolución.
+        </div>
+
+        <div class="action-box">
+            <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}">
+                <input type="hidden" name="estado" value="Realizado">
+                <button type="submit" class="btn-action btn-realizado">Marcar como realizado</button>
+            </form>
+        </div>
+    {% else %}
+        <div class="status-box status-realizado">
+            Este reporte ya fue marcado como realizado.
+        </div>
+
+        <div class="action-box">
+            <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}">
+                <input type="hidden" name="estado" value="Pendiente">
+                <button type="submit" class="btn-action btn-pendiente">Volver a pendiente</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="foto-card">
+        <h3>Subir foto de solución</h3>
+        <p>
+            Cargue una evidencia visual que muestre que el problema fue resuelto o atendido.
+        </p>
+
+        <form method="POST" action="{{ url_for('subir_foto_solucion', reporte_id=reporte.id) }}" enctype="multipart/form-data">
+            <input type="file" name="foto_solucion" class="file-control" accept=".png,.jpg,.jpeg,.webp">
+            <button type="submit" class="btn-save">Guardar foto de solución</button>
+        </form>
+    </div>
+
+    <div class="observacion-card">
+        <h3>Observación administrativa</h3>
+        <p>
+            Agrega notas internas, seguimiento o comentarios relevantes sobre este reporte.
+        </p>
+
+        <form method="POST" action="{{ url_for('guardar_observacion', reporte_id=reporte.id) }}">
+            <textarea
+                name="observacion_admin"
+                class="textarea-control"
+                placeholder="Escriba aquí una observación administrativa..."
+            >{{ reporte.observacion_admin if reporte.observacion_admin else '' }}</textarea>
+
+            <button type="submit" class="btn-save">Guardar observación</button>
+        </form>
+    </div>
+    <div class="whatsapp-card">
+    <h3>Contacto por WhatsApp</h3>
+    <p>
+        Envíe un mensaje rápido al ciudadano para confirmar recepción, informar que el equipo está cerca
+        o comunicar que el reporte fue resuelto.
+    </p>
+
+    <div class="whatsapp-actions">
+        {% if whatsapp_recibido %}
+            <a href="{{ whatsapp_recibido }}" target="_blank" class="btn-whatsapp">
+                💬 Confirmar recepción
+            </a>
+        {% endif %}
+
+        {% if whatsapp_camino %}
+            <a href="{{ whatsapp_camino }}" target="_blank" class="btn-whatsapp">
+                🚗 Avisar que están cerca
+            </a>
+        {% endif %}
+
+        {% if whatsapp_resuelto %}
+            <a href="{{ whatsapp_resuelto }}" target="_blank" class="btn-whatsapp">
+                ✅ Informar resolución
+            </a>
+        {% endif %}
+    </div>
+</div>
+</div>
+{% endblock %}
