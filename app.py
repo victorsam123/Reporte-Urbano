@@ -87,7 +87,7 @@ def guardar_imagen(archivo):
 def inicializar_bd():
     conexion = obtener_conexion()
     if conexion is None:
-        print("No se pudo conectar a MySQL para inicializar la base de datos.")
+        print("No se pudo conectar a PostgreSQL para inicializar la base de datos.")
         return
 
     cursor = conexion.cursor()
@@ -103,7 +103,7 @@ def inicializar_bd():
         activo BOOLEAN NOT NULL DEFAULT TRUE,
         fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-""")
+    """)
 
     # Tabla de reportes
     cursor.execute("""
@@ -127,7 +127,18 @@ def inicializar_bd():
         hora_finalizacion TIME,
         observacion_admin TEXT
     )
-""")
+    """)
+
+    # Tabla de logs de cambios
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS logs_cambios (
+        id SERIAL PRIMARY KEY,
+        reporte_id INTEGER,
+        usuario_id INTEGER,
+        accion VARCHAR(100),
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
 
     # Usuario admin inicial
     cursor.execute("SELECT * FROM usuarios WHERE usuario = %s LIMIT 1", ("admin",))
@@ -154,7 +165,6 @@ def inicializar_bd():
             WHERE usuario = %s
         """, (password_hash, True, "admin"))
         conexion.commit()
-        
 
     cursor.close()
     conexion.close()
@@ -1223,8 +1233,12 @@ def limpiar_datos_prueba():
     conexion.close()
 
 # =========================
-# INICIO
+# INICIALIZAR AL CARGAR LA APP
+# =========================
+inicializar_bd()
+
+# =========================
+# INICIO LOCAL
 # =========================
 if __name__ == "__main__":
-    inicializar_bd()
     app.run(debug=True)
