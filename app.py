@@ -423,9 +423,7 @@ def obtener_reporte_por_id(reporte_id):
 # =========================
 @app.route("/")
 def index():
-    if session.get("admin_logueado"):
-        return redirect(url_for("admin"))
-    return redirect(url_for("login"))
+    return redirect(url_for("ciudadano"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
