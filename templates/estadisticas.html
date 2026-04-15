@@ -636,10 +636,8 @@
             <div class="stat-icon">⏳</div>
         </div>
         <div class="stat-number">{{ resumen.pendientes }}</div>
-        <div class="stat-description">
-    Reportes que aún requieren atención o seguimiento administrativo.
-</div>
-<div class="kpi-extra">{{ pct_pendientes }}% del total general</div>
+        <div class="stat-description">Reportes que aún requieren atención o seguimiento administrativo.</div>
+        <div class="kpi-extra">{{ pct_pendientes }}% del total general</div>
     </div>
 
     <div class="stat-card card-realizados">
@@ -648,10 +646,8 @@
             <div class="stat-icon">✅</div>
         </div>
         <div class="stat-number">{{ resumen.realizados }}</div>
-        <div class="stat-description">
-    Incidencias críticas que requieren intervención prioritaria.
-</div>
-<div class="kpi-extra">{{ pct_alta }}% del total general</div>
+        <div class="stat-description">Incidencias ya finalizadas con resolución completada en el sistema.</div>
+        <div class="kpi-extra">{{ pct_realizados }}% del total general</div>
     </div>
 
     <div class="stat-card card-alta">
@@ -660,10 +656,8 @@
             <div class="stat-icon">🔴</div>
         </div>
         <div class="stat-number">{{ resumen.alta }}</div>
-        <div class="stat-description">
-    Incidencias críticas que requieren intervención prioritaria.
-</div>
-<div class="kpi-extra">{{ pct_alta }}% del total general</div>
+        <div class="stat-description">Incidencias críticas que requieren intervención prioritaria inmediata.</div>
+        <div class="kpi-extra">{{ pct_alta }}% del total general</div>
     </div>
 
     <div class="stat-card card-media">
@@ -672,10 +666,8 @@
             <div class="stat-icon">🔵</div>
         </div>
         <div class="stat-number">{{ resumen.media }}</div>
-       <div class="stat-description">
-    Casos de impacto moderado dentro de la gestión operativa.
-</div>
-<div class="kpi-extra">{{ pct_media }}% del total general</div>
+        <div class="stat-description">Casos de impacto moderado dentro de la gestión operativa.</div>
+        <div class="kpi-extra">{{ pct_media }}% del total general</div>
     </div>
 
     <div class="stat-card card-baja">
@@ -684,10 +676,8 @@
             <div class="stat-icon">⚪</div>
         </div>
         <div class="stat-number">{{ resumen.baja }}</div>
-        <div class="stat-description">
-    Reportes informativos o de menor urgencia operativa.
-</div>
-<div class="kpi-extra">{{ pct_baja }}% del total general</div>
+        <div class="stat-description">Reportes informativos o de menor urgencia operativa.</div>
+        <div class="kpi-extra">{{ pct_baja }}% del total general</div>
     </div>
 </div>
 
@@ -768,7 +758,7 @@
                     <div
                         class="bar-column"
                         style="height: {{ (item.total / max_total * 100)|round(0) }}%;"
-                        title="{{ item.tipo }}: {{ item.total }}"
+                        title="{{ item.tipo | e }}: {{ item.total }}"
                     ></div>
                 </div>
 
