@@ -1,7 +1,9 @@
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
 import os
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -26,32 +28,36 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # =========================
-# CONFIGURACIÓN MYSQL
+# CONFIGURACIÓN POSTGRESQL
 # =========================
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "reporte_urbano",
-    "port": 3306
+    "host": os.environ.get("DB_HOST"),
+    "user": os.environ.get("DB_USER"),
+    "password": os.environ.get("DB_PASSWORD"),
+    "database": os.environ.get("DB_NAME"),
+    "port": int(os.environ.get("DB_PORT", 5432))
 }
 
 # =========================
-# CONEXIÓN MYSQL
+# CONEXIÓN POSTGRESQL
 # =========================
 def obtener_conexion():
     try:
-        conexion = mysql.connector.connect(
+        conexion = psycopg2.connect(
             host=DB_CONFIG["host"],
             user=DB_CONFIG["user"],
             password=DB_CONFIG["password"],
-            database=DB_CONFIG["database"],
-            port=DB_CONFIG["port"]
+            dbname=DB_CONFIG["database"],
+            port=DB_CONFIG["port"],
+            cursor_factory=RealDictCursor
         )
+        print("Conexión correcta con PostgreSQL")
         return conexion
-    except Error as e:
-        print(f"Error al conectar con MySQL: {e}")
+    except Exception as e:
+        print(f"Error al conectar con PostgreSQL: {e}")
         return None
+    
+
 # =========================
 # ARCHIVOS / IMÁGENES
 # =========================
@@ -84,43 +90,44 @@ def inicializar_bd():
         print("No se pudo conectar a MySQL para inicializar la base de datos.")
         return
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
 
     # Tabla de usuarios
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(150) NOT NULL,
-            usuario VARCHAR(100) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            rol VARCHAR(50) NOT NULL DEFAULT 'admin',
-            activo TINYINT(1) NOT NULL DEFAULT 1,
-            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(150) NOT NULL,
+        usuario VARCHAR(100) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        rol VARCHAR(50) NOT NULL DEFAULT 'admin',
+        activo BOOLEAN NOT NULL DEFAULT TRUE,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
 
     # Tabla de reportes
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS reportes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(150) NOT NULL,
-            telefono VARCHAR(30) NOT NULL,
-            correo VARCHAR(150) NOT NULL,
-            tipo VARCHAR(150) NOT NULL,
-            descripcion TEXT NOT NULL,
-            ubicacion VARCHAR(255) NOT NULL,
-            mapa_url TEXT,
-            foto_problema VARCHAR(255),
-            foto_solucion VARCHAR(255),
-            fecha DATE,
-            hora TIME,
-            prioridad VARCHAR(20) NOT NULL DEFAULT 'Media',
-            estado VARCHAR(30) NOT NULL DEFAULT 'Pendiente',
-            fecha_finalizacion DATE NULL,
-            hora_finalizacion TIME NULL,
-            observacion_admin TEXT
-        )
-    """)
+    CREATE TABLE IF NOT EXISTS reportes (
+        id SERIAL PRIMARY KEY,
+        codigo_reporte VARCHAR(20) UNIQUE,
+        nombre VARCHAR(150) NOT NULL,
+        telefono VARCHAR(30) NOT NULL,
+        correo VARCHAR(150) NOT NULL,
+        tipo VARCHAR(150) NOT NULL,
+        descripcion TEXT NOT NULL,
+        ubicacion VARCHAR(255) NOT NULL,
+        mapa_url TEXT,
+        foto_problema VARCHAR(255),
+        foto_solucion VARCHAR(255),
+        fecha DATE,
+        hora TIME,
+        prioridad VARCHAR(20) NOT NULL DEFAULT 'Media',
+        estado VARCHAR(30) NOT NULL DEFAULT 'Pendiente',
+        fecha_finalizacion DATE,
+        hora_finalizacion TIME,
+        observacion_admin TEXT
+    )
+""")
 
     # Usuario admin inicial
     cursor.execute("SELECT * FROM usuarios WHERE usuario = %s LIMIT 1", ("admin",))
@@ -136,7 +143,7 @@ def inicializar_bd():
             "admin",
             password_hash,
             "admin",
-            1
+            True
         ))
         conexion.commit()
 
@@ -163,7 +170,7 @@ def buscar_usuario_por_nombre(usuario):
     if conexion is None:
         return None
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE usuario = %s LIMIT 1", (usuario,))
     resultado = cursor.fetchone()
 
@@ -175,7 +182,7 @@ def obtener_todos_los_usuarios():
     if conexion is None:
         return []
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT id, nombre, usuario, rol, activo, fecha_creacion
         FROM usuarios
@@ -193,7 +200,7 @@ def crear_usuario_admin(nombre, usuario, password, rol="admin"):
     if conexion is None:
         return False, "No se pudo conectar con la base de datos."
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
 
     cursor.execute("SELECT id FROM usuarios WHERE usuario = %s LIMIT 1", (usuario,))
     existe = cursor.fetchone()
@@ -213,7 +220,7 @@ def crear_usuario_admin(nombre, usuario, password, rol="admin"):
         usuario,
         password_hash,
         rol,
-        1
+        True
     ))
 
     conexion.commit()
@@ -230,7 +237,7 @@ def contar_total_reportes():
     if conexion is None:
         return 0
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("SELECT COUNT(*) AS total FROM reportes")
     resultado = cursor.fetchone()
     total = resultado["total"] if resultado else 0
@@ -244,7 +251,7 @@ def contar_reportes_por_estado(estado):
     if conexion is None:
         return 0
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = %s", (estado,))
     resultado = cursor.fetchone()
     total = resultado["total"] if resultado else 0
@@ -258,7 +265,7 @@ def contar_total_usuarios():
     if conexion is None:
         return 0
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios")
     resultado = cursor.fetchone()
     total = resultado["total"] if resultado else 0
@@ -272,7 +279,7 @@ def obtener_reportes_recientes(limite=8):
     if conexion is None:
         return []
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT id, nombre, tipo, prioridad, estado, fecha
         FROM reportes
@@ -330,7 +337,8 @@ def insertar_reporte(nombre, telefono, correo, tipo, descripcion, ubicacion, map
             ubicacion, mapa_url, prioridad, estado,
             fecha, hora, foto_problema, codigo_reporte
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURDATE(), CURTIME(), %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_TIME, %s, %s)
+        RETURNING id
     """, (
         nombre,
         telefono,
@@ -345,9 +353,10 @@ def insertar_reporte(nombre, telefono, correo, tipo, descripcion, ubicacion, map
         codigo_reporte
     ))
 
-    conexion.commit()
-    reporte_id = cursor.lastrowid
+    fila = cursor.fetchone()
+    reporte_id = fila["id"] if fila else None
 
+    conexion.commit()
     cursor.close()
     conexion.close()
 
@@ -359,7 +368,7 @@ def obtener_todos_los_reportes():
     if conexion is None:
         return []
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT *
         FROM reportes
@@ -377,7 +386,7 @@ def obtener_reportes_pendientes():
     if conexion is None:
         return []
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT *
         FROM reportes
@@ -396,7 +405,7 @@ def obtener_reporte_por_id(reporte_id):
     if conexion is None:
         return None
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT *
         FROM reportes
@@ -437,7 +446,7 @@ def login():
             flash("Usuario o contraseña incorrectos.", "error")
             return redirect(url_for("login"))
 
-        if int(usuario["activo"]) != 1:
+        if not usuario["activo"]:
             flash("La cuenta se encuentra inactiva.", "error")
             return redirect(url_for("login"))
 
@@ -539,7 +548,7 @@ def editar_usuario_admin(usuario_id):
         nombre = request.form.get("nombre", "").strip()
         usuario = request.form.get("usuario", "").strip()
         rol = request.form.get("rol", "admin").strip()
-        activo = 1 if request.form.get("activo") == "1" else 0
+        activo = True if request.form.get("activo") == "1" else False
 
         if not nombre or not usuario:
             flash("Nombre y usuario son obligatorios.", "error")
@@ -650,7 +659,7 @@ def obtener_usuario_por_id(usuario_id):
     if conexion is None:
         return None
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT id, nombre, usuario, rol, activo, fecha_creacion
         FROM usuarios
@@ -669,7 +678,7 @@ def actualizar_usuario_admin_db(usuario_id, nombre, usuario, rol, activo):
     if conexion is None:
         return False, "No se pudo conectar con la base de datos."
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
 
     cursor.execute("""
         SELECT id FROM usuarios
@@ -939,7 +948,7 @@ def obtener_reportes_realizados():
     if conexion is None:
         return []
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT *
         FROM reportes
@@ -1110,7 +1119,7 @@ def obtener_estadisticas_generales():
             "baja": 0
         }
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
 
     cursor.execute("SELECT COUNT(*) AS total FROM reportes")
     total_reportes = cursor.fetchone()["total"]
@@ -1148,7 +1157,7 @@ def obtener_estadisticas_por_tipo():
     if conexion is None:
         return []
 
-    cursor = conexion.cursor(dictionary=True)
+    cursor = conexion.cursor()
     cursor.execute("""
         SELECT tipo, COUNT(*) AS total
         FROM reportes
@@ -1173,8 +1182,8 @@ def actualizar_estado_reporte(reporte_id, nuevo_estado):
         cursor.execute("""
             UPDATE reportes
             SET estado = %s,
-                fecha_finalizacion = CURDATE(),
-                hora_finalizacion = CURTIME()
+               fecha_finalizacion = CURRENT_DATE,
+               hora_finalizacion = CURRENT_TIME
             WHERE id = %s
         """, (nuevo_estado, reporte_id))
     else:
