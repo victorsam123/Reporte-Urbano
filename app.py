@@ -146,6 +146,15 @@ def inicializar_bd():
             True
         ))
         conexion.commit()
+    else:
+        password_hash = generate_password_hash("12345")
+        cursor.execute("""
+            UPDATE usuarios
+            SET password = %s, activo = %s
+            WHERE usuario = %s
+        """, (password_hash, True, "admin"))
+        conexion.commit()
+        
 
     cursor.close()
     conexion.close()
