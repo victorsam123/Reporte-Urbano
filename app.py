@@ -185,7 +185,6 @@ def inicializar_bd():
             WHERE usuario = %s
         """, (password_hash, True, "admin"))
         conexion.commit()
-        
 
     cursor.close()
     conexion.close()
@@ -1472,7 +1471,6 @@ def estadisticas():
     )
 
 
-# =========================
 # INICIALIZAR AL CARGAR LA APP
 # =========================
 inicializar_bd()
