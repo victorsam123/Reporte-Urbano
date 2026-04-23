@@ -35,6 +35,7 @@
     .card-total::before { background: linear-gradient(90deg, #1d4ed8, #38bdf8); }
     .card-pendientes::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
     .card-realizados::before { background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .card-critica::before { background: linear-gradient(90deg, #b91c1c, #ef4444); }
     .card-alta::before { background: linear-gradient(90deg, #dc2626, #fb7185); }
     .card-media::before { background: linear-gradient(90deg, #2563eb, #60a5fa); }
     .card-baja::before { background: linear-gradient(90deg, #475569, #94a3b8); }
@@ -532,7 +533,7 @@
 
 .exec-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 14px;
 }
 
@@ -593,6 +594,7 @@
 {% set total_general = resumen.total_reportes if resumen.total_reportes > 0 else 1 %}
 {% set pct_pendientes = (resumen.pendientes / total_general * 100)|round(1) %}
 {% set pct_realizados = (resumen.realizados / total_general * 100)|round(1) %}
+{% set pct_critica = (resumen.critica / total_general * 100)|round(1) %}
 {% set pct_alta = (resumen.alta / total_general * 100)|round(1) %}
 {% set pct_media = (resumen.media / total_general * 100)|round(1) %}
 {% set pct_baja = (resumen.baja / total_general * 100)|round(1) %}
@@ -607,10 +609,13 @@
     {% set estado_predominante_total = resumen.realizados %}
 {% endif %}
 
-{% if resumen.alta >= resumen.media and resumen.alta >= resumen.baja %}
+{% if resumen.critica >= resumen.alta and resumen.critica >= resumen.media and resumen.critica >= resumen.baja %}
+    {% set prioridad_dominante = "Crítica" %}
+    {% set prioridad_dominante_total = resumen.critica %}
+{% elif resumen.alta >= resumen.critica and resumen.alta >= resumen.media and resumen.alta >= resumen.baja %}
     {% set prioridad_dominante = "Alta" %}
     {% set prioridad_dominante_total = resumen.alta %}
-{% elif resumen.media >= resumen.alta and resumen.media >= resumen.baja %}
+{% elif resumen.media >= resumen.critica and resumen.media >= resumen.alta and resumen.media >= resumen.baja %}
     {% set prioridad_dominante = "Media" %}
     {% set prioridad_dominante_total = resumen.media %}
 {% else %}
@@ -648,6 +653,16 @@
         <div class="stat-number">{{ resumen.realizados }}</div>
         <div class="stat-description">Incidencias ya finalizadas con resolución completada en el sistema.</div>
         <div class="kpi-extra">{{ pct_realizados }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-critica">
+        <div class="stat-top">
+            <div class="stat-label">Prioridad crítica</div>
+            <div class="stat-icon">🔥</div>
+        </div>
+        <div class="stat-number">{{ resumen.critica }}</div>
+        <div class="stat-description">Incidencias de riesgo inmediato que requieren respuesta urgente.</div>
+        <div class="kpi-extra">{{ pct_critica }}% del total general</div>
     </div>
 
     <div class="stat-card card-alta">
@@ -855,6 +870,13 @@
             <div class="exec-number">{{ pct_realizados }}%</div>
             <div class="exec-desc">Proporción de reportes ya finalizados.</div>
             <span class="percent-badge">{{ resumen.realizados }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Prioridad crítica</div>
+            <div class="exec-number">{{ pct_critica }}%</div>
+            <div class="exec-desc">Eventos de riesgo inmediato dentro del total.</div>
+            <span class="percent-badge">{{ resumen.critica }} casos</span>
         </div>
 
         <div class="exec-box">

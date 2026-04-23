@@ -371,6 +371,7 @@
 
         <div class="action-box">
             <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="estado" value="Realizado">
                 <button type="submit" class="btn-action btn-realizado">Marcar como realizado</button>
             </form>
@@ -382,6 +383,7 @@
 
         <div class="action-box">
             <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="estado" value="Pendiente">
                 <button type="submit" class="btn-action btn-pendiente">Volver a pendiente</button>
             </form>
@@ -395,6 +397,7 @@
         </p>
 
         <form method="POST" action="{{ url_for('subir_foto_solucion', reporte_id=reporte.id) }}" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="file" name="foto_solucion" class="file-control" accept=".png,.jpg,.jpeg,.webp">
             <button type="submit" class="btn-save">Guardar foto de solución</button>
         </form>
@@ -407,6 +410,7 @@
         </p>
 
         <form method="POST" action="{{ url_for('guardar_observacion', reporte_id=reporte.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <textarea
                 name="observacion_admin"
                 class="textarea-control"

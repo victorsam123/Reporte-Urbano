@@ -4,6 +4,7 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
 import os
 import re
+import secrets
 import uuid
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -18,7 +19,7 @@ from urllib.parse import quote
 
 
 app = Flask(__name__)
-app.secret_key = "reporte_urbano_2026"
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -27,8 +28,36 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def generar_csrf_token():
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_urlsafe(32)
+    return session["csrf_token"]
+
+
+@app.context_processor
+def inyectar_csrf_token():
+    return {"csrf_token": generar_csrf_token}
+
+
+@app.before_request
+def validar_csrf_token():
+    if request.method != "POST":
+        return None
+
+    token_form = request.form.get("csrf_token", "")
+    token_sesion = session.get("csrf_token", "")
+
+    if not token_form or not token_sesion or not secrets.compare_digest(token_form, token_sesion):
+        return "Token CSRF inválido o ausente.", 400
+
+    return None
 
 # =========================
 # CONFIGURACIÓN POSTGRESQL
@@ -165,7 +194,8 @@ def inicializar_bd():
     admin_existente = cursor.fetchone()
 
     if not admin_existente:
-        password_hash = generate_password_hash("12345")
+        password_inicial_admin = os.environ.get("ADMIN_PASSWORD", "Admin@2026!")
+        password_hash = generate_password_hash(password_inicial_admin)
         cursor.execute("""
             INSERT INTO usuarios (nombre, usuario, password, rol, activo)
             VALUES (%s, %s, %s, %s, %s)
@@ -468,21 +498,40 @@ def asignar_prioridad(tipo):
     tipo = tipo.strip().lower()
 
     if tipo in [
-        "accidente",
-        "accidentes",
-        "acompañamiento fúnebre",
-        "acompanamiento fúnebre",
-        "acompañamiento funebre",
-        "acompanamiento funebre"
+        "accidentes de tránsito",
+        "accidentes de transito",
+        "cableado eléctrico caído",
+        "cableado electrico caido",
+        "incendios / humo",
+        "fugas de gas",
+        "derrumbes",
+        "inundaciones graves"
+    ]:
+        return "Critica"
+
+    elif tipo in [
+        "alumbrado público apagado",
+        "alumbrado publico apagado",
+        "basura acumulada en gran cantidad",
+        "baches peligrosos",
+        "semáforos dañados",
+        "semaforos dañados",
+        "semaforos danados",
+        "animales muertos en vía pública",
+        "animales muertos en via publica"
     ]:
         return "Alta"
 
     elif tipo in [
-        "quema de basura",
-        "baches en lugares de importancia",
-        "alumbrado público",
-        "alumbrado publico",
-        "basura acumulada"
+        "poda de árboles",
+        "poda de arboles",
+        "limpieza de terrenos baldíos",
+        "limpieza de terrenos baldios",
+        "ruido excesivo",
+        "problemas de señalización",
+        "problemas de señalizacion",
+        "calles en mal estado (no crítico)",
+        "calles en mal estado (no critico)"
     ]:
         return "Media"
 
@@ -760,6 +809,7 @@ def obtener_estadisticas_generales():
             "total_reportes": 0,
             "pendientes": 0,
             "realizados": 0,
+            "critica": 0,
             "alta": 0,
             "media": 0,
             "baja": 0
@@ -775,6 +825,9 @@ def obtener_estadisticas_generales():
 
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'Realizado'")
     realizados = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE prioridad = 'Critica'")
+    critica = cursor.fetchone()["total"]
 
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE prioridad = 'Alta'")
     alta = cursor.fetchone()["total"]
@@ -792,6 +845,7 @@ def obtener_estadisticas_generales():
         "total_reportes": total_reportes,
         "pendientes": pendientes,
         "realizados": realizados,
+        "critica": critica,
         "alta": alta,
         "media": media,
         "baja": baja
@@ -1088,17 +1142,50 @@ def eliminar_usuario_admin(usuario_id):
 
 @app.route("/ciudadano")
 def ciudadano():
-    tipos = [
-        "Accidente",
-        "Acompañamiento fúnebre",
-        "Quema de basura",
-        "Baches en lugares de importancia",
-        "Poda de árbol",
-        "Alumbrado público",
-        "Basura acumulada",
-        "Otros problemas comunitarios"
+    tipos_por_prioridad = [
+        {
+            "label": "Crítica (riesgo inmediato)",
+            "opciones": [
+                "Accidentes de tránsito",
+                "Cableado eléctrico caído",
+                "Incendios / humo",
+                "Fugas de gas",
+                "Derrumbes",
+                "Inundaciones graves"
+            ]
+        },
+        {
+            "label": "Alta (impacto fuerte)",
+            "opciones": [
+                "Alumbrado público apagado",
+                "Basura acumulada en gran cantidad",
+                "Baches peligrosos",
+                "Semáforos dañados",
+                "Animales muertos en vía pública"
+            ]
+        },
+        {
+            "label": "Media",
+            "opciones": [
+                "Poda de árboles",
+                "Limpieza de terrenos baldíos",
+                "Ruido excesivo",
+                "Problemas de señalización",
+                "Calles en mal estado (no crítico)"
+            ]
+        },
+        {
+            "label": "Baja",
+            "opciones": [
+                "Sugerencias",
+                "Reclamos administrativos",
+                "Mejoras estéticas",
+                "Consultas"
+            ]
+        }
     ]
-    return render_template("ciudadano.html", tipos=tipos)
+
+    return render_template("ciudadano.html", tipos_por_prioridad=tipos_por_prioridad)
 
 
 # =========================
@@ -1106,35 +1193,31 @@ def ciudadano():
 # =========================
 @app.route("/api/buscar_reporte", methods=["GET"])
 def api_buscar_reporte():
-    """Endpoint para que ciudadanos busquen el estado de sus reportes por ID o código"""
-    reporte_id = request.args.get("id", "").strip()
+    """Endpoint público para que ciudadanos consulten estado por código de reporte."""
+    reporte_codigo = request.args.get("id", "").strip().upper()
     
-    if not reporte_id:
-        return {"exito": False, "mensaje": "El ID del reporte es requerido."}, 400
+    if not reporte_codigo:
+        return {"exito": False, "mensaje": "El código del reporte es requerido."}, 400
+
+    if not re.match(r"^REP-[A-Z0-9]{8}$", reporte_codigo):
+        return {"exito": False, "mensaje": "Código inválido. Use el formato REP-XXXXXXXX."}, 400
     
-    # Validar que sea un número o código válido
     try:
-        # Si es un número, usarlo como ID
-        if reporte_id.isdigit():
-            reporte = obtener_reporte_por_id(int(reporte_id))
-        else:
-            # Si no, buscar por código de reporte
-            conexion = obtener_conexion()
-            if conexion is None:
-                return {"exito": False, "mensaje": "Error de conexión con la base de datos."}, 500
-            
-            cursor = conexion.cursor()
-            cursor.execute("""
-                SELECT id, nombre, tipo, estado, prioridad, fecha, hora,
-                       ubicacion, descripcion, codigo_reporte, observacion_admin,
-                       fecha_finalizacion, hora_finalizacion
-                FROM reportes
-                WHERE codigo_reporte = %s
-                LIMIT 1
-            """, (reporte_id,))
-            reporte = cursor.fetchone()
-            cursor.close()
-            conexion.close()
+        conexion = obtener_conexion()
+        if conexion is None:
+            return {"exito": False, "mensaje": "Error de conexión con la base de datos."}, 500
+
+        cursor = conexion.cursor()
+        cursor.execute("""
+            SELECT id, codigo_reporte, tipo, estado, prioridad, fecha, hora,
+                   observacion_admin, fecha_finalizacion, hora_finalizacion
+            FROM reportes
+            WHERE codigo_reporte = %s
+            LIMIT 1
+        """, (reporte_codigo,))
+        reporte = cursor.fetchone()
+        cursor.close()
+        conexion.close()
     except Exception as e:
         print(f"Error al buscar reporte: {e}")
         return {"exito": False, "mensaje": "Error en la búsqueda del reporte."}, 500
@@ -1148,14 +1231,11 @@ def api_buscar_reporte():
         "reporte": {
             "id": reporte["id"],
             "codigo_reporte": reporte["codigo_reporte"],
-            "nombre": reporte["nombre"],
             "tipo": reporte["tipo"],
             "estado": reporte["estado"],
             "prioridad": reporte["prioridad"],
             "fecha": str(reporte["fecha"]) if reporte["fecha"] else "",
             "hora": str(reporte["hora"]) if reporte["hora"] else "",
-            "ubicacion": reporte["ubicacion"],
-            "descripcion": reporte["descripcion"],
             "observacion_admin": reporte["observacion_admin"] or "Sin observaciones",
             "fecha_finalizacion": str(reporte["fecha_finalizacion"]) if reporte["fecha_finalizacion"] else "",
             "hora_finalizacion": str(reporte["hora_finalizacion"]) if reporte["hora_finalizacion"] else ""
@@ -1471,4 +1551,4 @@ inicializar_bd()
 # INICIO LOCAL
 # =========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1")

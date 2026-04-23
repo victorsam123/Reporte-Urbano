@@ -609,7 +609,34 @@
         .tab-content.visible {
             display: block;
         }
+
+        /* Mini mapa de ubicación */
+        #mini-mapa-contenedor {
+            display: none;
+            margin-top: 14px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 2px solid var(--color-borde);
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
+        }
+
+        #mini-mapa-titulo {
+            background: var(--color-primario);
+            color: var(--color-blanco);
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            letter-spacing: 0.03em;
+        }
+
+        #mini-mapa {
+            height: 260px;
+            width: 100%;
+        }
     </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="anonymous">
 </head>
 <body>
     <section class="hero">
@@ -654,10 +681,10 @@
 
             <!-- BOTONES DE NAVEGACIÓN -->
             <div class="tab-buttons">
-                <button class="tab-btn activo" onclick="mostrarTab('registro')">
+                <button class="tab-btn activo" onclick="mostrarTab('registro', this)">
                     📝 Registrar Reporte
                 </button>
-                <button class="tab-btn" onclick="mostrarTab('estado')">
+                <button class="tab-btn" onclick="mostrarTab('estado', this)">
                     🔍 Ver Estado de Reporte
                 </button>
             </div>
@@ -673,6 +700,7 @@
             <!-- TAB: REGISTRAR REPORTE -->
             <div id="tab-registro" class="tab-content visible">
             <form method="POST" action="{{ url_for('crear_reporte') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="nombre">Nombre completo</label>
@@ -713,8 +741,12 @@
                         <label for="tipo">Tipo de incidencia</label>
                         <select id="tipo" name="tipo" class="form-control" required>
                             <option value="">Seleccione una opción</option>
-                            {% for tipo in tipos %}
-                                <option value="{{ tipo }}">{{ tipo }}</option>
+                            {% for grupo in tipos_por_prioridad %}
+                                <optgroup label="{{ grupo.label }}">
+                                    {% for tipo in grupo.opciones %}
+                                        <option value="{{ tipo }}">{{ tipo }}</option>
+                                    {% endfor %}
+                                </optgroup>
                             {% endfor %}
                         </select>
                     </div>
@@ -741,6 +773,10 @@
                             Agregar mi ubicación por Google Maps
                         </button>
                         <small id="mensaje-ubicacion" style="display:block; margin-top:8px;"></small>
+                        <div id="mini-mapa-contenedor">
+                            <div id="mini-mapa-titulo">Tu ubicación dentro de Presidente Franco</div>
+                            <div id="mini-mapa"></div>
+                        </div>
                     </div>
 
                     <div class="form-group full">
@@ -782,7 +818,7 @@
                         type="text"
                         id="buscar-id"
                         class="buscar-input"
-                        placeholder="Ingrese el ID o código del reporte (Ej: 123 o REP-abc12345)"
+                        placeholder="Ingrese el código del reporte (Ej: REP-ABC12345)"
                         onkeypress="if(event.key === 'Enter') buscarReporte();"
                     >
                     <button class="btn-buscar" onclick="buscarReporte()" id="btn-buscar">Buscar</button>
@@ -803,9 +839,12 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPcM="
+            crossorigin="anonymous"></script>
     <script>
     // ========== FUNCIONES DE NAVEGACIÓN DE TABS ==========
-    function mostrarTab(tabName) {
+    function mostrarTab(tabName, boton) {
         // Ocultar todos los tabs
         const tabs = document.querySelectorAll('.tab-content');
         tabs.forEach(tab => tab.classList.remove('visible'));
@@ -818,7 +857,9 @@
         document.getElementById('tab-' + tabName).classList.add('visible');
 
         // Activar el botón correspondiente
-        event.target.classList.add('activo');
+        if (boton) {
+            boton.classList.add('activo');
+        }
 
         // Limpiar la búsqueda anterior
         if (tabName === 'estado') {
@@ -844,7 +885,7 @@
 
         // Validar que no esté vacío
         if (!idReporte) {
-            mensajeError.innerHTML = '⚠️ Por favor ingrese el ID o código del reporte.';
+            mensajeError.innerHTML = '⚠️ Por favor ingrese el código del reporte.';
             mensajeError.classList.add('visible');
             return;
         }
@@ -879,6 +920,7 @@
     function mostrarDetallesReporte(reporte) {
         const resultadoBusqueda = document.getElementById('resultado-busqueda');
         const contenido = document.getElementById('contenido-resultado');
+        const estadoSeguro = escapeHtml(reporte.estado);
 
         // Determinar clase CSS para el estado
         const claseEstado = reporte.estado === 'Realizado' ? 'realizado' : 'pendiente';
@@ -886,23 +928,18 @@
         let html = `
             <div>
                 <div style="margin-bottom: 16px;">
-                    <span class="estado-badge ${claseEstado}">${reporte.estado}</span>
+                    <span class="estado-badge ${claseEstado}">${estadoSeguro}</span>
                 </div>
 
                 <div class="detalle-reporte">
                     <div class="detalle-fila">
-                        <div class="detalle-label">ID del Reporte:</div>
+                        <div class="detalle-label">ID Interno:</div>
                         <div class="detalle-valor">#${reporte.id}</div>
                     </div>
 
                     <div class="detalle-fila">
                         <div class="detalle-label">Código:</div>
-                        <div class="detalle-valor">${reporte.codigo_reporte}</div>
-                    </div>
-
-                    <div class="detalle-fila">
-                        <div class="detalle-label">Nombre:</div>
-                        <div class="detalle-valor">${escapeHtml(reporte.nombre)}</div>
+                        <div class="detalle-valor">${escapeHtml(reporte.codigo_reporte)}</div>
                     </div>
 
                     <div class="detalle-fila">
@@ -911,24 +948,14 @@
                     </div>
 
                     <div class="detalle-fila">
-                        <div class="detalle-label">Ubicación:</div>
-                        <div class="detalle-valor">${escapeHtml(reporte.ubicacion)}</div>
-                    </div>
-
-                    <div class="detalle-fila">
                         <div class="detalle-label">Fecha de Registro:</div>
-                        <div class="detalle-valor">${reporte.fecha} a las ${reporte.hora}</div>
-                    </div>
-
-                    <div class="detalle-fila">
-                        <div class="detalle-label">Descripción:</div>
-                        <div class="detalle-valor">${escapeHtml(reporte.descripcion)}</div>
+                        <div class="detalle-valor">${escapeHtml(reporte.fecha)} a las ${escapeHtml(reporte.hora)}</div>
                     </div>
 
                     ${reporte.estado === 'Realizado' ? `
                     <div class="detalle-fila">
                         <div class="detalle-label">Fecha Finalización:</div>
-                        <div class="detalle-valor">${reporte.fecha_finalizacion} a las ${reporte.hora_finalizacion}</div>
+                        <div class="detalle-valor">${escapeHtml(reporte.fecha_finalizacion)} a las ${escapeHtml(reporte.hora_finalizacion)}</div>
                     </div>
                     ` : ''}
 
@@ -970,6 +997,140 @@
     }
 
     // ========== FUNCIONES ANTERIORES ==========
+    const LIMITE_GEOJSON_URL = "{{ url_for('static', filename='presidente_franco_boundary.geojson') }}";
+    let limitePresidenteFranco = null;
+    let limitePresidenteFrancoPromise = null;
+
+    function puntoEnAnillo(lat, lon, anillo) {
+        let dentro = false;
+
+        for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+            const xi = anillo[i][0];
+            const yi = anillo[i][1];
+            const xj = anillo[j][0];
+            const yj = anillo[j][1];
+
+            const intersecta = ((yi > lat) !== (yj > lat)) &&
+                (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+
+            if (intersecta) {
+                dentro = !dentro;
+            }
+        }
+
+        return dentro;
+    }
+
+    function puntoEnPoligono(lat, lon, poligono) {
+        if (!poligono || poligono.length === 0) {
+            return false;
+        }
+
+        const anilloExterior = poligono[0];
+        if (!puntoEnAnillo(lat, lon, anilloExterior)) {
+            return false;
+        }
+
+        for (let i = 1; i < poligono.length; i++) {
+            if (puntoEnAnillo(lat, lon, poligono[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function puntoEnGeoJson(lat, lon, geojson) {
+        if (!geojson || !geojson.type || !geojson.coordinates) {
+            return false;
+        }
+
+        if (geojson.type === "Polygon") {
+            return puntoEnPoligono(lat, lon, geojson.coordinates);
+        }
+
+        if (geojson.type === "MultiPolygon") {
+            return geojson.coordinates.some(poligono => puntoEnPoligono(lat, lon, poligono));
+        }
+
+        return false;
+    }
+
+    async function cargarLimitePresidenteFranco() {
+        if (limitePresidenteFranco) {
+            return limitePresidenteFranco;
+        }
+
+        if (!limitePresidenteFrancoPromise) {
+            limitePresidenteFrancoPromise = fetch(LIMITE_GEOJSON_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("No se pudo cargar el límite geográfico.");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    limitePresidenteFranco = data;
+                    return data;
+                });
+        }
+
+        return limitePresidenteFrancoPromise;
+    }
+
+    let miniMapa = null;
+    let marcadorUsuario = null;
+
+    function inicializarMiniMapa(lat, lon, limiteGeoJson, dentroDeZona) {
+        const contenedor = document.getElementById("mini-mapa-contenedor");
+        contenedor.style.display = "block";
+
+        if (!miniMapa) {
+            miniMapa = L.map("mini-mapa", { zoomControl: true, scrollWheelZoom: false });
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 18
+            }).addTo(miniMapa);
+
+            // Dibujar el límite de la ciudad
+            L.geoJSON(limiteGeoJson, {
+                style: {
+                    color: "#1d4ed8",
+                    weight: 2.5,
+                    opacity: 0.9,
+                    fillColor: "#38bdf8",
+                    fillOpacity: 0.10
+                }
+            }).addTo(miniMapa);
+        }
+
+        // Ícono según si está dentro o fuera
+        const icono = L.divIcon({
+            html: dentroDeZona
+                ? '<div style="width:14px;height:14px;background:#16a34a;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px rgba(0,0,0,.4);"></div>'
+                : '<div style="width:14px;height:14px;background:#dc2626;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px rgba(0,0,0,.4);"></div>',
+            className: "",
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+        });
+
+        if (marcadorUsuario) {
+            marcadorUsuario.setLatLng([lat, lon]).setIcon(icono);
+        } else {
+            marcadorUsuario = L.marker([lat, lon], { icon: icono }).addTo(miniMapa);
+        }
+
+        marcadorUsuario.bindPopup(
+            dentroDeZona
+                ? "Tu ubicación está dentro de Presidente Franco."
+                : "Tu ubicación está fuera del perímetro."
+        ).openPopup();
+
+        miniMapa.setView([lat, lon], 14);
+        // Forzar redibujado por si el contenedor estaba oculto
+        setTimeout(() => miniMapa.invalidateSize(), 100);
+    }
+
     function obtenerUbicacion() {
         const mensaje = document.getElementById("mensaje-ubicacion");
         const campoUbicacion = document.getElementById("ubicacion");
@@ -983,15 +1144,30 @@
         mensaje.textContent = "Obteniendo ubicación...";
 
         navigator.geolocation.getCurrentPosition(
-            function(posicion) {
+            async function(posicion) {
                 const lat = posicion.coords.latitude;
                 const lon = posicion.coords.longitude;
                 const linkMaps = `https://www.google.com/maps?q=${lat},${lon}`;
 
-                campoUbicacion.value = "Ubicación capturada automáticamente";
-                campoMapaUrl.value = linkMaps;
+                try {
+                    const limiteGeoJson = await cargarLimitePresidenteFranco();
+                    const dentroDePresidenteFranco = puntoEnGeoJson(lat, lon, limiteGeoJson);
 
-                mensaje.innerHTML = `Ubicación cargada correctamente. <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
+                    if (!dentroDePresidenteFranco) {
+                        campoMapaUrl.value = "";
+                        mensaje.textContent = "Tu ubicación está fuera del perímetro de Presidente Franco. Debes estar dentro de la zona para adjuntar ubicación automática.";
+                        inicializarMiniMapa(lat, lon, limiteGeoJson, false);
+                        return;
+                    }
+
+                    campoUbicacion.value = "Ubicación capturada automáticamente";
+                    campoMapaUrl.value = linkMaps;
+                    mensaje.innerHTML = `Ubicación cargada correctamente. <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
+                    inicializarMiniMapa(lat, lon, limiteGeoJson, true);
+                } catch (error) {
+                    campoMapaUrl.value = "";
+                    mensaje.textContent = "No fue posible validar el perímetro de Presidente Franco. Intenta nuevamente en unos segundos.";
+                }
             },
             function(error) {
                 switch (error.code) {

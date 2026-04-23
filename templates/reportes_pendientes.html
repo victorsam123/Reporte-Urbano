@@ -131,7 +131,9 @@
                     <td>{{ reporte.telefono }}</td>
                     <td>{{ reporte.tipo }}</td>
                     <td>
-                        {% if reporte.prioridad == 'Alta' %}
+                        {% if reporte.prioridad == 'Critica' %}
+                            <span class="badge badge-alta">Crítica</span>
+                        {% elif reporte.prioridad == 'Alta' %}
                             <span class="badge badge-alta">Alta</span>
                         {% elif reporte.prioridad == 'Media' %}
                             <span class="badge badge-media">Media</span>
