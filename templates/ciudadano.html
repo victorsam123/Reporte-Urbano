@@ -1097,6 +1097,7 @@
 
     let miniMapa = null;
     let marcadorUsuario = null;
+    let capaLimitePresidenteFranco = null;
 
     function inicializarMiniMapa(lat, lon, limiteGeoJson, dentroDeZona) {
         const contenedor = document.getElementById("mini-mapa-contenedor");
@@ -1114,7 +1115,7 @@
                     }).addTo(miniMapa);
 
                     if (limiteGeoJson) {
-                        L.geoJSON(limiteGeoJson, {
+                        capaLimitePresidenteFranco = L.geoJSON(limiteGeoJson, {
                             style: {
                                 color: "#1d4ed8",
                                 weight: 2.5,
@@ -1147,8 +1148,17 @@
                         : "Tu ubicación está fuera del perímetro."
                 ).openPopup();
 
-                miniMapa.setView([lat, lon], 14);
                 miniMapa.invalidateSize();
+
+                if (capaLimitePresidenteFranco) {
+                    const limites = capaLimitePresidenteFranco.getBounds();
+                    if (limites && limites.isValid()) {
+                        miniMapa.fitBounds(limites, {
+                            padding: [16, 16],
+                            maxZoom: 15
+                        });
+                    }
+                }
             });
         });
     }
