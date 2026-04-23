@@ -1205,8 +1205,11 @@
                     mensaje.innerHTML = `Ubicación cargada correctamente. <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
                     inicializarMiniMapa(lat, lon, limiteGeoJson, true);
                 } catch (error) {
-                    campoMapaUrl.value = "";
-                    mensaje.textContent = "No fue posible validar el perímetro de Presidente Franco. Intenta nuevamente en unos segundos.";
+                    console.error("Error validando perímetro:", error);
+                    // Si el GeoJSON no carga, igual permitir adjuntar la ubicación
+                    campoUbicacion.value = "Ubicación capturada automáticamente";
+                    campoMapaUrl.value = linkMaps;
+                    mensaje.innerHTML = `Ubicación cargada (sin validación de perímetro). <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
                 }
             },
             function(error) {
