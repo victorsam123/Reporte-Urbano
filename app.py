@@ -1553,7 +1553,7 @@ def api_geojson():
     """Ruta explícita para servir el GeoJSON con headers correctos"""
     try:
         geojson_path = os.path.join(BASE_DIR, "static", "presidente_franco_boundary.geojson")
-        with open(geojson_path, "r", encoding="utf-8") as f:
+        with open(geojson_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         
         from flask import jsonify
