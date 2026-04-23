@@ -1157,6 +1157,14 @@
 
                 miniMapa.invalidateSize();
 
+                // Recalcular tamaño al rotar el teléfono o cambiar tamaño de ventana
+                if (!miniMapa._resizeListenerAdded) {
+                    window.addEventListener("resize", function () {
+                        if (miniMapa) { miniMapa.invalidateSize(); }
+                    });
+                    miniMapa._resizeListenerAdded = true;
+                }
+
                 if (capaLimitePresidenteFranco) {
                     const limites = capaLimitePresidenteFranco.getBounds();
                     if (limites && limites.isValid()) {
@@ -1236,7 +1244,7 @@
             },
             {
                 enableHighAccuracy: true,
-                timeout: 10000,
+                timeout: 15000,
                 maximumAge: 0
             }
         );
