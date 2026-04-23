@@ -1041,16 +1041,27 @@
     }
 
     function puntoEnGeoJson(lat, lon, geojson) {
-        if (!geojson || !geojson.type || !geojson.coordinates) {
+        if (!geojson) {
             return false;
         }
 
-        if (geojson.type === "Polygon") {
-            return puntoEnPoligono(lat, lon, geojson.coordinates);
+        let geometry = geojson;
+
+        // Si es un FeatureCollection, extraer la geometría del primer feature
+        if (geojson.type === "FeatureCollection" && geojson.features && geojson.features.length > 0) {
+            geometry = geojson.features[0].geometry;
         }
 
-        if (geojson.type === "MultiPolygon") {
-            return geojson.coordinates.some(poligono => puntoEnPoligono(lat, lon, poligono));
+        if (!geometry || !geometry.type || !geometry.coordinates) {
+            return false;
+        }
+
+        if (geometry.type === "Polygon") {
+            return puntoEnPoligono(lat, lon, geometry.coordinates);
+        }
+
+        if (geometry.type === "MultiPolygon") {
+            return geometry.coordinates.some(poligono => puntoEnPoligono(lat, lon, poligono));
         }
 
         return false;
