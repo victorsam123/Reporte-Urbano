@@ -159,6 +159,11 @@
         color: #166534;
     }
 
+    .badge-critica {
+        background: #7f1d1d;
+        color: #fecaca;
+    }
+
     .badge-alta {
         background: #fee2e2;
         color: #991b1b;
@@ -283,7 +288,7 @@
                             <td>{{ reporte.tipo }}</td>
                             <td>
                                 {% if reporte.prioridad == 'Critica' %}
-                                    <span class="badge badge-alta">Crítica</span>
+                                    <span class="badge badge-critica">Crítica</span>
                                 {% elif reporte.prioridad == 'Alta' %}
                                     <span class="badge badge-alta">Alta</span>
                                 {% elif reporte.prioridad == 'Media' %}
@@ -320,13 +325,13 @@
         </div>
 
         <div class="quick-actions">
-            <a href="#" class="action-card">
+            <a href="{{ url_for('reportes_pendientes') }}" class="action-card">
                 <div class="action-icon">📌</div>
                 <div class="action-title">Pendientes</div>
                 <div class="action-text">Consulta los reportes que todavía no fueron resueltos.</div>
             </a>
 
-            <a href="#" class="action-card">
+            <a href="{{ url_for('reportes_realizados') }}" class="action-card">
                 <div class="action-icon">✅</div>
                 <div class="action-title">Realizados</div>
                 <div class="action-text">Revisa las incidencias ya finalizadas y cerradas.</div>
@@ -338,7 +343,7 @@
     <div class="action-text">Analiza el comportamiento general del sistema.</div>
 </a>
 
-            <a href="#" class="action-card">
+            <a href="{{ url_for('usuarios_admin') }}" class="action-card">
                 <div class="action-icon">👤</div>
                 <div class="action-title">Usuarios</div>
                 <div class="action-text">Administra accesos y cuentas del panel administrativo.</div>
@@ -346,7 +351,7 @@
         </div>
 
         <div style="margin-top: 18px;">
-            <a href="#" class="btn-link">Ver módulo completo</a>
+            <a href="{{ url_for('reportes') }}" class="btn-link">Ver módulo completo</a>
         </div>
     </div>
 </div>

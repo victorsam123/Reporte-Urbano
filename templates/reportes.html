@@ -71,6 +71,11 @@
         color: #166534;
     }
 
+    .badge-critica {
+        background: #7f1d1d;
+        color: #fecaca;
+    }
+
     .badge-alta {
         background: #fee2e2;
         color: #991b1b;
@@ -128,7 +133,7 @@
                     <td>{{ reporte.tipo }}</td>
                     <td>
                         {% if reporte.prioridad == 'Critica' %}
-                            <span class="badge badge-alta">Crítica</span>
+                            <span class="badge badge-critica">Crítica</span>
                         {% elif reporte.prioridad == 'Alta' %}
                             <span class="badge badge-alta">Alta</span>
                         {% elif reporte.prioridad == 'Media' %}
