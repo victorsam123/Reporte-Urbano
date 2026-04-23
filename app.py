@@ -812,7 +812,9 @@ def obtener_estadisticas_generales():
             "critica": 0,
             "alta": 0,
             "media": 0,
-            "baja": 0
+            "baja": 0,
+            "con_ubicacion": 0,
+            "con_foto": 0
         }
 
     cursor = conexion.cursor()
@@ -838,6 +840,12 @@ def obtener_estadisticas_generales():
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE prioridad = 'Baja'")
     baja = cursor.fetchone()["total"]
 
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE mapa_url IS NOT NULL AND mapa_url != ''")
+    con_ubicacion = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE foto_problema IS NOT NULL AND foto_problema != ''")
+    con_foto = cursor.fetchone()["total"]
+
     cursor.close()
     conexion.close()
 
@@ -848,7 +856,9 @@ def obtener_estadisticas_generales():
         "critica": critica,
         "alta": alta,
         "media": media,
-        "baja": baja
+        "baja": baja,
+        "con_ubicacion": con_ubicacion,
+        "con_foto": con_foto
     }
 
 

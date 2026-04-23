@@ -39,6 +39,8 @@
     .card-alta::before { background: linear-gradient(90deg, #dc2626, #fb7185); }
     .card-media::before { background: linear-gradient(90deg, #2563eb, #60a5fa); }
     .card-baja::before { background: linear-gradient(90deg, #475569, #94a3b8); }
+    .card-ubicacion::before { background: linear-gradient(90deg, #0d9488, #2dd4bf); }
+    .card-foto::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
 
     .stat-top {
         display: flex;
@@ -533,7 +535,7 @@
 
 .exec-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 14px;
 }
 
@@ -598,6 +600,8 @@
 {% set pct_alta = (resumen.alta / total_general * 100)|round(1) %}
 {% set pct_media = (resumen.media / total_general * 100)|round(1) %}
 {% set pct_baja = (resumen.baja / total_general * 100)|round(1) %}
+{% set pct_con_ubicacion = (resumen.con_ubicacion / total_general * 100)|round(1) %}
+{% set pct_con_foto = (resumen.con_foto / total_general * 100)|round(1) %}
 {% set tipo_frecuente = por_tipo[0].tipo if por_tipo else "Sin datos" %}
 {% set total_tipo_frecuente = por_tipo[0].total if por_tipo else 0 %}
 
@@ -671,7 +675,7 @@
             <div class="stat-icon">🔴</div>
         </div>
         <div class="stat-number">{{ resumen.alta }}</div>
-        <div class="stat-description">Incidencias críticas que requieren intervención prioritaria inmediata.</div>
+        <div class="stat-description">Incidencias de alto impacto que requieren atención e intervención prioritaria.</div>
         <div class="kpi-extra">{{ pct_alta }}% del total general</div>
     </div>
 
@@ -693,6 +697,26 @@
         <div class="stat-number">{{ resumen.baja }}</div>
         <div class="stat-description">Reportes informativos o de menor urgencia operativa.</div>
         <div class="kpi-extra">{{ pct_baja }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-ubicacion">
+        <div class="stat-top">
+            <div class="stat-label">Con ubicación GPS</div>
+            <div class="stat-icon">📍</div>
+        </div>
+        <div class="stat-number">{{ resumen.con_ubicacion }}</div>
+        <div class="stat-description">Reportes que incluyen coordenadas GPS georreferenciadas del lugar del incidente.</div>
+        <div class="kpi-extra">{{ pct_con_ubicacion }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-foto">
+        <div class="stat-top">
+            <div class="stat-label">Con foto adjunta</div>
+            <div class="stat-icon">📷</div>
+        </div>
+        <div class="stat-number">{{ resumen.con_foto }}</div>
+        <div class="stat-description">Reportes que cuentan con evidencia fotográfica del problema reportado.</div>
+        <div class="kpi-extra">{{ pct_con_foto }}% del total general</div>
     </div>
 </div>
 
@@ -898,6 +922,20 @@
             <div class="exec-number">{{ pct_baja }}%</div>
             <div class="exec-desc">Incidencias de menor urgencia relativa.</div>
             <span class="percent-badge">{{ resumen.baja }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Con ubicación GPS</div>
+            <div class="exec-number">{{ pct_con_ubicacion }}%</div>
+            <div class="exec-desc">Reportes con coordenadas georreferenciadas.</div>
+            <span class="percent-badge">{{ resumen.con_ubicacion }} casos</span>
+        </div>
+
+        <div class="exec-box">
+            <div class="exec-title">Con foto adjunta</div>
+            <div class="exec-number">{{ pct_con_foto }}%</div>
+            <div class="exec-desc">Reportes con evidencia fotográfica del problema.</div>
+            <span class="percent-badge">{{ resumen.con_foto }} casos</span>
         </div>
     </div>
 </div>
