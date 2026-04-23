@@ -996,126 +996,103 @@
         return text.replace(/[&<>"']/g, m => map[m]);
     }
 
-    // ========== FUNCIONES ANTERIORES ==========
+    // ========== GEOCERCA PRESIDENTE FRANCO ==========
     const LIMITE_GEOJSON_URL = "{{ url_for('static', filename='presidente_franco_boundary.geojson') }}";
     let limitePresidenteFranco = null;
-    let limitePresidenteFrancoPromise = null;
+    let geojsonListo = false;
+    let geojsonCargando = false;
 
-    function puntoEnAnillo(lat, lon, anillo) {
-        let dentro = false;
+    // Pre-cargar el GeoJSON en cuanto la página termina de cargar
+    document.addEventListener("DOMContentLoaded", function () {
+        precargarGeoJson();
+    });
 
-        for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
-            const xi = anillo[i][0];
-            const yi = anillo[i][1];
-            const xj = anillo[j][0];
-            const yj = anillo[j][1];
+    async function precargarGeoJson() {
+        if (geojsonListo || geojsonCargando) return;
+        geojsonCargando = true;
 
-            const intersecta = ((yi > lat) !== (yj > lat)) &&
-                (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+        const urls = [LIMITE_GEOJSON_URL, "/api/geojson"];
 
-            if (intersecta) {
-                dentro = !dentro;
+        for (const url of urls) {
+            try {
+                console.log("[GeoJSON] Cargando desde:", url);
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    console.warn("[GeoJSON] Error HTTP", response.status, "en", url);
+                    continue;
+                }
+
+                const data = await response.json();
+
+                if (!data || !data.type) {
+                    console.warn("[GeoJSON] Respuesta inválida desde", url, data);
+                    continue;
+                }
+
+                limitePresidenteFranco = data;
+                geojsonListo = true;
+                console.log("[GeoJSON] Cargado correctamente. Tipo:", data.type);
+                break;
+
+            } catch (e) {
+                console.warn("[GeoJSON] Excepción en", url, "→", e.message);
             }
         }
 
+        geojsonCargando = false;
+
+        if (!geojsonListo) {
+            console.error("[GeoJSON] No se pudo cargar el perímetro desde ninguna fuente.");
+        }
+    }
+
+    // Ray-casting: coordenadas GeoJSON en formato [longitud, latitud]
+    function puntoEnAnillo(lat, lon, anillo) {
+        let dentro = false;
+        for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+            const xi = anillo[i][0]; // longitud
+            const yi = anillo[i][1]; // latitud
+            const xj = anillo[j][0];
+            const yj = anillo[j][1];
+            const intersecta = ((yi > lat) !== (yj > lat)) &&
+                (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+            if (intersecta) dentro = !dentro;
+        }
         return dentro;
     }
 
     function puntoEnPoligono(lat, lon, poligono) {
-        if (!poligono || poligono.length === 0) {
-            return false;
-        }
-
-        const anilloExterior = poligono[0];
-        if (!puntoEnAnillo(lat, lon, anilloExterior)) {
-            return false;
-        }
-
+        if (!poligono || poligono.length === 0) return false;
+        if (!puntoEnAnillo(lat, lon, poligono[0])) return false;
         for (let i = 1; i < poligono.length; i++) {
-            if (puntoEnAnillo(lat, lon, poligono[i])) {
-                return false;
-            }
+            if (puntoEnAnillo(lat, lon, poligono[i])) return false;
         }
-
         return true;
     }
 
     function puntoEnGeoJson(lat, lon, geojson) {
-        if (!geojson) {
-            return false;
+        if (!geojson) return false;
+
+        let geometrias = [];
+
+        if (geojson.type === "FeatureCollection") {
+            geometrias = (geojson.features || []).map(f => f && f.geometry).filter(Boolean);
+        } else if (geojson.type === "Feature") {
+            geometrias = [geojson.geometry];
+        } else {
+            geometrias = [geojson];
         }
 
-        let geometry = geojson;
-
-        // Si es un FeatureCollection, extraer la geometría del primer feature
-        if (geojson.type === "FeatureCollection" && geojson.features && geojson.features.length > 0) {
-            geometry = geojson.features[0].geometry;
-        }
-
-        if (!geometry || !geometry.type || !geometry.coordinates) {
-            return false;
-        }
-
-        if (geometry.type === "Polygon") {
-            return puntoEnPoligono(lat, lon, geometry.coordinates);
-        }
-
-        if (geometry.type === "MultiPolygon") {
-            return geometry.coordinates.some(poligono => puntoEnPoligono(lat, lon, poligono));
+        for (const geom of geometrias) {
+            if (!geom || !geom.type || !geom.coordinates) continue;
+            if (geom.type === "Polygon" && puntoEnPoligono(lat, lon, geom.coordinates)) return true;
+            if (geom.type === "MultiPolygon") {
+                if (geom.coordinates.some(p => puntoEnPoligono(lat, lon, p))) return true;
+            }
         }
 
         return false;
-    }
-
-    async function cargarLimitePresidenteFranco() {
-        if (limitePresidenteFranco) {
-            return limitePresidenteFranco;
-        }
-
-        if (!limitePresidenteFrancoPromise) {
-            limitePresidenteFrancoPromise = (async () => {
-                const urls = [
-                    LIMITE_GEOJSON_URL,
-                    "/api/geojson"  // Fallback a ruta API
-                ];
-
-                for (const url of urls) {
-                    try {
-                        console.log(`Intentando cargar GeoJSON desde: ${url}`);
-                        const response = await fetch(url);
-                        
-                        if (!response.ok) {
-                            console.warn(`Error ${response.status} al cargar desde ${url}`);
-                            continue;
-                        }
-                        
-                        const data = await response.json();
-                        console.log("GeoJSON cargado correctamente:", data);
-                        
-                        // Validar que sea un GeoJSON válido
-                        if (!data || typeof data !== 'object') {
-                            throw new Error("GeoJSON no es un objeto válido");
-                        }
-                        
-                        limitePresidenteFranco = data;
-                        return data;
-                    } catch (error) {
-                        console.warn(`Error en ${url}:`, error);
-                        // Continuar con la siguiente URL
-                    }
-                }
-                
-                // Si llegamos aquí, todas las URLs fallaron
-                throw new Error("No se pudo cargar el GeoJSON desde ninguna fuente");
-            })();
-
-            limitePresidenteFrancoPromise.catch(error => {
-                console.error("Error final en cargarLimitePresidenteFranco:", error);
-                limitePresidenteFrancoPromise = null;
-            });
-        }
-
-        return limitePresidenteFrancoPromise;
     }
 
     let miniMapa = null;
@@ -1132,19 +1109,19 @@
                 maxZoom: 18
             }).addTo(miniMapa);
 
-            // Dibujar el límite de la ciudad
-            L.geoJSON(limiteGeoJson, {
-                style: {
-                    color: "#1d4ed8",
-                    weight: 2.5,
-                    opacity: 0.9,
-                    fillColor: "#38bdf8",
-                    fillOpacity: 0.10
-                }
-            }).addTo(miniMapa);
+            if (limiteGeoJson) {
+                L.geoJSON(limiteGeoJson, {
+                    style: {
+                        color: "#1d4ed8",
+                        weight: 2.5,
+                        opacity: 0.9,
+                        fillColor: "#38bdf8",
+                        fillOpacity: 0.10
+                    }
+                }).addTo(miniMapa);
+            }
         }
 
-        // Ícono según si está dentro o fuera
         const icono = L.divIcon({
             html: dentroDeZona
                 ? '<div style="width:14px;height:14px;background:#16a34a;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px rgba(0,0,0,.4);"></div>'
@@ -1167,7 +1144,6 @@
         ).openPopup();
 
         miniMapa.setView([lat, lon], 14);
-        // Forzar redibujado por si el contenedor estaba oculto
         setTimeout(() => miniMapa.invalidateSize(), 100);
     }
 
@@ -1184,42 +1160,51 @@
         mensaje.textContent = "Obteniendo ubicación...";
 
         navigator.geolocation.getCurrentPosition(
-            async function(posicion) {
+            async function (posicion) {
                 const lat = posicion.coords.latitude;
                 const lon = posicion.coords.longitude;
                 const linkMaps = `https://www.google.com/maps?q=${lat},${lon}`;
 
-                try {
-                    const limiteGeoJson = await cargarLimitePresidenteFranco();
-                    const dentroDePresidenteFranco = puntoEnGeoJson(lat, lon, limiteGeoJson);
+                console.log(`[Ubicación] lat=${lat}, lon=${lon}`);
 
-                    if (!dentroDePresidenteFranco) {
-                        campoMapaUrl.value = "";
-                        mensaje.textContent = "Tu ubicación está fuera del perímetro de Presidente Franco. Debes estar dentro de la zona para adjuntar ubicación automática.";
-                        inicializarMiniMapa(lat, lon, limiteGeoJson, false);
-                        return;
-                    }
-
-                    campoUbicacion.value = "Ubicación capturada automáticamente";
-                    campoMapaUrl.value = linkMaps;
-                    mensaje.innerHTML = `Ubicación cargada correctamente. <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
-                    inicializarMiniMapa(lat, lon, limiteGeoJson, true);
-                } catch (error) {
-                    console.error("Error al cargar el límite de la ciudad:", error);
-                    campoMapaUrl.value = "";
-                    mensaje.textContent = "No se pudo cargar el mapa de Presidente Franco. Verificá tu conexión a internet e intentá de nuevo.";
+                // Si el GeoJSON aún no está listo, intentar cargarlo ahora
+                if (!geojsonListo) {
+                    mensaje.textContent = "Cargando límite de la ciudad...";
+                    await precargarGeoJson();
                 }
+
+                // Si sigue sin cargarse, bloquear
+                if (!geojsonListo || !limitePresidenteFranco) {
+                    campoMapaUrl.value = "";
+                    mensaje.textContent = "No se pudo cargar el límite de Presidente Franco. Verificá tu conexión e intentá nuevamente.";
+                    return;
+                }
+
+                const dentroDePresidenteFranco = puntoEnGeoJson(lat, lon, limitePresidenteFranco);
+                console.log(`[Geocerca] ¿Dentro? ${dentroDePresidenteFranco}`);
+
+                if (!dentroDePresidenteFranco) {
+                    campoMapaUrl.value = "";
+                    mensaje.textContent = "Tu ubicación está fuera del perímetro de Presidente Franco. Debés estar dentro de la zona para adjuntar ubicación automática.";
+                    inicializarMiniMapa(lat, lon, limitePresidenteFranco, false);
+                    return;
+                }
+
+                campoUbicacion.value = "Ubicación capturada automáticamente";
+                campoMapaUrl.value = linkMaps;
+                mensaje.innerHTML = `Ubicación cargada correctamente. <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
+                inicializarMiniMapa(lat, lon, limitePresidenteFranco, true);
             },
-            function(error) {
+            function (error) {
                 switch (error.code) {
                     case error.PERMISSION_DENIED:
-                        mensaje.textContent = "Permiso de ubicación denegado.";
+                        mensaje.textContent = "Permiso de ubicación denegado. Habilitá la ubicación en tu navegador.";
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        mensaje.textContent = "La ubicación no está disponible.";
+                        mensaje.textContent = "La ubicación no está disponible en este momento.";
                         break;
                     case error.TIMEOUT:
-                        mensaje.textContent = "Se agotó el tiempo para obtener la ubicación.";
+                        mensaje.textContent = "Se agotó el tiempo para obtener la ubicación. Intentá nuevamente.";
                         break;
                     default:
                         mensaje.textContent = "Ocurrió un error al obtener la ubicación.";
