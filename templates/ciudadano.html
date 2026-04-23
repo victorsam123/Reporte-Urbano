@@ -1073,17 +1073,46 @@
         }
 
         if (!limitePresidenteFrancoPromise) {
-            limitePresidenteFrancoPromise = fetch(LIMITE_GEOJSON_URL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("No se pudo cargar el límite geográfico.");
+            limitePresidenteFrancoPromise = (async () => {
+                const urls = [
+                    LIMITE_GEOJSON_URL,
+                    "/api/geojson"  // Fallback a ruta API
+                ];
+
+                for (const url of urls) {
+                    try {
+                        console.log(`Intentando cargar GeoJSON desde: ${url}`);
+                        const response = await fetch(url);
+                        
+                        if (!response.ok) {
+                            console.warn(`Error ${response.status} al cargar desde ${url}`);
+                            continue;
+                        }
+                        
+                        const data = await response.json();
+                        console.log("GeoJSON cargado correctamente:", data);
+                        
+                        // Validar que sea un GeoJSON válido
+                        if (!data || typeof data !== 'object') {
+                            throw new Error("GeoJSON no es un objeto válido");
+                        }
+                        
+                        limitePresidenteFranco = data;
+                        return data;
+                    } catch (error) {
+                        console.warn(`Error en ${url}:`, error);
+                        // Continuar con la siguiente URL
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    limitePresidenteFranco = data;
-                    return data;
-                });
+                }
+                
+                // Si llegamos aquí, todas las URLs fallaron
+                throw new Error("No se pudo cargar el GeoJSON desde ninguna fuente");
+            })();
+
+            limitePresidenteFrancoPromise.catch(error => {
+                console.error("Error final en cargarLimitePresidenteFranco:", error);
+                limitePresidenteFrancoPromise = null;
+            });
         }
 
         return limitePresidenteFrancoPromise;

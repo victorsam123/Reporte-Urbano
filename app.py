@@ -1543,6 +1543,26 @@ def estadisticas():
     )
 
 
+# =========================
+# RUTA DEBUG - SERVIR GEOJSON EXPLÍCITAMENTE
+# =========================
+import json
+
+@app.route("/api/geojson")
+def api_geojson():
+    """Ruta explícita para servir el GeoJSON con headers correctos"""
+    try:
+        geojson_path = os.path.join(BASE_DIR, "static", "presidente_franco_boundary.geojson")
+        with open(geojson_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        from flask import jsonify
+        return jsonify(data)
+    except Exception as e:
+        print(f"Error al servir GeoJSON: {e}")
+        return {"error": str(e)}, 500
+
+
 # INICIALIZAR AL CARGAR LA APP
 # =========================
 inicializar_bd()
