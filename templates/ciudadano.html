@@ -840,7 +840,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPcM="
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin="anonymous"></script>
     <script>
     // ========== FUNCIONES DE NAVEGACIÓN DE TABS ==========
@@ -1101,6 +1101,13 @@
 
     function inicializarMiniMapa(lat, lon, limiteGeoJson, dentroDeZona) {
         const contenedor = document.getElementById("mini-mapa-contenedor");
+
+        if (typeof L === "undefined") {
+            console.error("Leaflet no se cargó correctamente (L undefined).");
+            const mensaje = document.getElementById("mensaje-ubicacion");
+            mensaje.textContent = "No se pudo cargar el minimapa (Leaflet). Recargá la página e intentá nuevamente.";
+            return;
+        }
 
         // Mostrar el contenedor primero y esperar que el navegador lo pinte
         contenedor.style.display = "block";
