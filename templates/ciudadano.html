@@ -1205,11 +1205,9 @@
                     mensaje.innerHTML = `Ubicación cargada correctamente. <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
                     inicializarMiniMapa(lat, lon, limiteGeoJson, true);
                 } catch (error) {
-                    console.error("Error validando perímetro:", error);
-                    // Si el GeoJSON no carga, igual permitir adjuntar la ubicación
-                    campoUbicacion.value = "Ubicación capturada automáticamente";
-                    campoMapaUrl.value = linkMaps;
-                    mensaje.innerHTML = `Ubicación cargada (sin validación de perímetro). <a href="${linkMaps}" target="_blank">Ver en Google Maps</a>`;
+                    console.error("Error al cargar el límite de la ciudad:", error);
+                    campoMapaUrl.value = "";
+                    mensaje.textContent = "No se pudo cargar el mapa de Presidente Franco. Verificá tu conexión a internet e intentá de nuevo.";
                 }
             },
             function(error) {
