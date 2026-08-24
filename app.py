@@ -144,11 +144,6 @@ CATALOGO_TIPOS_POR_PRIORIDAD = [
     {
         "label": "Crítica (riesgo inmediato)",
         "opciones": [
-            "Accidentes de tránsito",
-            "Cableado eléctrico caído",
-            "Incendios / humo",
-            "Fugas de gas",
-            "Derrumbes",
             "Inundaciones graves"
         ]
     },
@@ -196,7 +191,6 @@ TIPOS_EQUIVALENTES = {
     "basura acumulada": "Basura acumulada en gran cantidad",
     "poda de arbol": "Poda de árboles",
     "alumbrado publico": "Alumbrado público apagado",
-    "quema de basura": "Incendios / humo",
     "acompanamiento funebre": "Reclamos administrativos",
     "otros problemas comunitarios": "Consultas"
 }
