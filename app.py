@@ -1,11 +1,14 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
 import os
 import re
+import json
+import socket
 import secrets
 import uuid
+import unicodedata
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -15,7 +18,7 @@ from datetime import timedelta
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from io import BytesIO
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 
 app = Flask(__name__)
@@ -105,6 +108,123 @@ def validar_telefono(telefono):
     return re.match(patron, telefono) is not None
 
 
+def normalizar_texto(texto):
+    texto = unicodedata.normalize("NFKD", texto or "")
+    texto = "".join(caracter for caracter in texto if not unicodedata.combining(caracter))
+    texto = re.sub(r"\s+", " ", texto).strip().lower()
+    return texto
+
+
+# Replica la normalizacion de acentos y espacios dentro de filtros SQL.
+SQL_TRANSLITERACION_ORIGEN = (
+    "\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da"
+    "\u00e4\u00eb\u00ef\u00f6\u00fc\u00c4\u00cb\u00cf\u00d6\u00dc"
+    "\u00e0\u00e8\u00ec\u00f2\u00f9\u00c0\u00c8\u00cc\u00d2\u00d9"
+    "\u00e2\u00ea\u00ee\u00f4\u00fb\u00c2\u00ca\u00ce\u00d4\u00db"
+    "\u00e3\u00f5\u00c3\u00d5\u00f1\u00d1"
+)
+SQL_TRANSLITERACION_DESTINO = (
+    "aeiouAEIOU"
+    "aeiouAEIOU"
+    "aeiouAEIOU"
+    "aeiouAEIOU"
+    "aoAOnN"
+)
+
+
+def sql_normalizar_texto(campo_sql):
+    return (
+        "trim(regexp_replace("
+        f"lower(translate({campo_sql}, '{SQL_TRANSLITERACION_ORIGEN}', '{SQL_TRANSLITERACION_DESTINO}')),"
+        " '\\s+', ' ', 'g'))"
+    )
+
+
+CATALOGO_TIPOS_POR_PRIORIDAD = [
+    {
+        "label": "Crítica (riesgo inmediato)",
+        "opciones": [
+            "Accidentes de tránsito",
+            "Cableado eléctrico caído",
+            "Incendios / humo",
+            "Fugas de gas",
+            "Derrumbes",
+            "Inundaciones graves"
+        ]
+    },
+    {
+        "label": "Alta (impacto fuerte)",
+        "opciones": [
+            "Alumbrado público apagado",
+            "Basura acumulada en gran cantidad",
+            "Baches peligrosos",
+            "Semáforos dañados",
+            "Animales muertos en vía pública"
+        ]
+    },
+    {
+        "label": "Media",
+        "opciones": [
+            "Poda de árboles",
+            "Limpieza de terrenos baldíos",
+            "Ruido excesivo",
+            "Problemas de señalización",
+            "Calles en mal estado (no crítico)"
+        ]
+    },
+    {
+        "label": "Baja",
+        "opciones": [
+            "Sugerencias",
+            "Reclamos administrativos",
+            "Mejoras estéticas",
+            "Consultas"
+        ]
+    }
+]
+
+TIPOS_OFICIALES = {
+    normalizar_texto(tipo): tipo
+    for grupo in CATALOGO_TIPOS_POR_PRIORIDAD
+    for tipo in grupo["opciones"]
+}
+
+TIPOS_EQUIVALENTES = {
+    "accidente": "Accidentes de tránsito",
+    "accidentes": "Accidentes de tránsito",
+    "accidente de transito": "Accidentes de tránsito",
+    "basura acumulada": "Basura acumulada en gran cantidad",
+    "poda de arbol": "Poda de árboles",
+    "alumbrado publico": "Alumbrado público apagado",
+    "quema de basura": "Incendios / humo",
+    "acompanamiento funebre": "Reclamos administrativos",
+    "otros problemas comunitarios": "Consultas"
+}
+
+ESTADOS_VALIDOS = [
+    "Pendiente",
+    "En revisión",
+    "Asignado",
+    "En proceso",
+    "Realizado",
+    "Rechazado / No corresponde"
+]
+ESTADOS_FINALES = {"Realizado", "Rechazado / No corresponde"}
+
+
+def normalizar_tipo_incidencia(tipo):
+    tipo_limpio = re.sub(r"\s+", " ", (tipo or "")).strip()
+    tipo_normalizado = normalizar_texto(tipo_limpio)
+
+    if tipo_normalizado in TIPOS_OFICIALES:
+        return TIPOS_OFICIALES[tipo_normalizado]
+
+    if tipo_normalizado in TIPOS_EQUIVALENTES:
+        return TIPOS_EQUIVALENTES[tipo_normalizado]
+
+    return tipo_limpio
+
+
 def archivo_permitido(nombre_archivo):
     return "." in nombre_archivo and nombre_archivo.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -189,6 +309,22 @@ def inicializar_bd():
     )
     """)
 
+    # Migración: agregar columnas que pueden faltar en tablas ya existentes
+    migraciones = [
+        "ALTER TABLE reportes ADD COLUMN IF NOT EXISTS codigo_reporte VARCHAR(20) UNIQUE",
+        "ALTER TABLE reportes ADD COLUMN IF NOT EXISTS foto_solucion VARCHAR(255)",
+        "ALTER TABLE reportes ADD COLUMN IF NOT EXISTS fecha_finalizacion DATE",
+        "ALTER TABLE reportes ADD COLUMN IF NOT EXISTS hora_finalizacion TIME",
+        "ALTER TABLE reportes ADD COLUMN IF NOT EXISTS observacion_admin TEXT",
+        "ALTER TABLE reportes ADD COLUMN IF NOT EXISTS mapa_url TEXT",
+    ]
+    for sql_migracion in migraciones:
+        try:
+            cursor.execute(sql_migracion)
+        except Exception as e_mig:
+            print(f"Migración omitida: {e_mig}")
+    conexion.commit()
+
     # Usuario admin inicial
     cursor.execute("SELECT * FROM usuarios WHERE usuario = %s LIMIT 1", ("admin",))
     admin_existente = cursor.fetchone()
@@ -207,6 +343,27 @@ def inicializar_bd():
             True
         ))
         conexion.commit()
+
+    cursor.execute("SELECT id, tipo, prioridad FROM reportes")
+    reportes_existentes = cursor.fetchall()
+
+    for reporte in reportes_existentes:
+        tipo_alineado = normalizar_tipo_incidencia(reporte["tipo"])
+        prioridad_alineada = asignar_prioridad(tipo_alineado)
+
+        if tipo_alineado != reporte["tipo"] or prioridad_alineada != reporte["prioridad"]:
+            cursor.execute("""
+                UPDATE reportes
+                SET tipo = %s,
+                    prioridad = %s
+                WHERE id = %s
+            """, (
+                tipo_alineado,
+                prioridad_alineada,
+                reporte["id"]
+            ))
+
+    conexion.commit()
 
     cursor.close()
     conexion.close()
@@ -457,6 +614,69 @@ def contar_reportes_por_estado(estado):
     return total
 
 
+def contar_reportes_activos():
+    conexion = obtener_conexion()
+    if conexion is None:
+        return 0
+
+    cursor = conexion.cursor()
+    cursor.execute("""
+        SELECT COUNT(*) AS total FROM reportes
+        WHERE estado NOT IN ('Realizado', 'Rechazado / No corresponde')
+    """)
+    resultado = cursor.fetchone()
+    total = resultado["total"] if resultado else 0
+
+    cursor.close()
+    conexion.close()
+    return total
+
+
+def obtener_kpis_admin():
+    conexion = obtener_conexion()
+    if conexion is None:
+        return {"pct_resolucion": 0, "criticos_activos": 0, "con_ubicacion": 0, "con_foto": 0}
+
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes")
+    total = cursor.fetchone()["total"] or 0
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'Realizado'")
+    realizados = cursor.fetchone()["total"] or 0
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total FROM reportes
+        WHERE prioridad = 'Critica'
+        AND estado NOT IN ('Realizado', 'Rechazado / No corresponde')
+    """)
+    criticos_activos = cursor.fetchone()["total"] or 0
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total FROM reportes
+        WHERE mapa_url IS NOT NULL AND mapa_url != ''
+    """)
+    con_ubicacion = cursor.fetchone()["total"] or 0
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total FROM reportes
+        WHERE foto_problema IS NOT NULL AND foto_problema != ''
+    """)
+    con_foto = cursor.fetchone()["total"] or 0
+
+    cursor.close()
+    conexion.close()
+
+    pct_resolucion = round((realizados / total * 100), 1) if total > 0 else 0
+
+    return {
+        "pct_resolucion": pct_resolucion,
+        "criticos_activos": criticos_activos,
+        "con_ubicacion": con_ubicacion,
+        "con_foto": con_foto
+    }
+
+
 def contar_total_usuarios():
     conexion = obtener_conexion()
     if conexion is None:
@@ -495,44 +715,34 @@ def obtener_reportes_recientes(limite=8):
 # FUNCIONES REPORTES
 # =========================
 def asignar_prioridad(tipo):
-    tipo = tipo.strip().lower()
+    tipo_normalizado = normalizar_texto(tipo)
 
-    if tipo in [
-        "accidentes de tránsito",
+    if tipo_normalizado in {
         "accidentes de transito",
-        "cableado eléctrico caído",
         "cableado electrico caido",
         "incendios / humo",
         "fugas de gas",
         "derrumbes",
         "inundaciones graves"
-    ]:
+    }:
         return "Critica"
 
-    elif tipo in [
-        "alumbrado público apagado",
+    elif tipo_normalizado in {
         "alumbrado publico apagado",
         "basura acumulada en gran cantidad",
         "baches peligrosos",
-        "semáforos dañados",
-        "semaforos dañados",
         "semaforos danados",
-        "animales muertos en vía pública",
         "animales muertos en via publica"
-    ]:
+    }:
         return "Alta"
 
-    elif tipo in [
-        "poda de árboles",
+    elif tipo_normalizado in {
         "poda de arboles",
-        "limpieza de terrenos baldíos",
         "limpieza de terrenos baldios",
         "ruido excesivo",
-        "problemas de señalización",
-        "problemas de señalizacion",
-        "calles en mal estado (no crítico)",
+        "problemas de senalizacion",
         "calles en mal estado (no critico)"
-    ]:
+    }:
         return "Media"
 
     return "Baja"
@@ -560,6 +770,7 @@ def insertar_reporte(nombre, telefono, correo, tipo, descripcion, ubicacion, map
     cursor = conexion.cursor()
 
     try:
+        tipo = normalizar_tipo_incidencia(tipo)
         prioridad = asignar_prioridad(tipo)
         codigo_reporte = generar_codigo_reporte()
 
@@ -618,6 +829,108 @@ def obtener_todos_los_reportes():
     return reportes
 
 
+def obtener_reportes_filtrados(
+    codigo=None,
+    estado=None,
+    prioridad=None,
+    tipo=None,
+    fecha=None,
+    busqueda=None,
+    ordenar_por="id",
+    direccion="desc",
+    pagina=1,
+    por_pagina=20,
+    aplicar_paginacion=True
+):
+    conexion = obtener_conexion()
+    if conexion is None:
+        return [], 0
+
+    columnas_orden = {
+        "id": "id",
+        "nombre": "nombre",
+        "tipo": "tipo",
+        "prioridad": "prioridad",
+        "estado": "estado",
+        "fecha": "fecha",
+    }
+    columna_sql = columnas_orden.get(ordenar_por, "id")
+    direccion_sql = "ASC" if str(direccion).lower() == "asc" else "DESC"
+
+    condiciones = []
+    params = []
+
+    if codigo:
+        condiciones.append("codigo_reporte ILIKE %s")
+        params.append(f"%{codigo}%")
+
+    if estado:
+        condiciones.append("estado = %s")
+        params.append(estado)
+
+    if prioridad:
+        condiciones.append("prioridad = %s")
+        params.append(prioridad)
+
+    if tipo:
+        tipo_busqueda = normalizar_texto(normalizar_tipo_incidencia(tipo))
+        if tipo_busqueda:
+            condiciones.append(f"{sql_normalizar_texto('tipo')} ILIKE %s")
+            params.append(f"%{tipo_busqueda}%")
+
+    if fecha:
+        condiciones.append("fecha::date = %s")
+        params.append(fecha)
+
+    if busqueda:
+        condiciones_busqueda = ["nombre ILIKE %s"]
+        params_busqueda = [f"%{busqueda}%"]
+        telefono_busqueda = re.sub(r"\D", "", busqueda)
+
+        if telefono_busqueda:
+            condiciones_busqueda.append("regexp_replace(telefono, '\\D', '', 'g') LIKE %s")
+            params_busqueda.append(f"%{telefono_busqueda}%")
+
+        condiciones.append("(" + " OR ".join(condiciones_busqueda) + ")")
+        params.extend(params_busqueda)
+
+    where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+
+    print(f"[FILTROS] WHERE={where!r} params={params}")
+
+    try:
+        cursor = conexion.cursor()
+        cursor.execute(f"SELECT COUNT(*) AS total FROM reportes {where}", params)
+        total = cursor.fetchone()["total"] or 0
+
+        query = f"SELECT * FROM reportes {where} ORDER BY {columna_sql} {direccion_sql}, id DESC"
+        query_params = list(params)
+
+        if aplicar_paginacion:
+            pagina = max(1, int(pagina))
+            por_pagina = max(1, int(por_pagina))
+            offset = (pagina - 1) * por_pagina
+            query += " LIMIT %s OFFSET %s"
+            query_params.extend([por_pagina, offset])
+
+        cursor.execute(query, query_params)
+        reportes = cursor.fetchall()
+
+        cursor.close()
+        conexion.close()
+        return reportes, total
+
+    except Exception as e:
+        print(f"[FILTROS ERROR] {e}")
+        try:
+            conexion.rollback()
+            cursor.close()
+            conexion.close()
+        except Exception:
+            pass
+        return [], 0
+
+
 def obtener_reportes_pendientes():
     conexion = obtener_conexion()
     if conexion is None:
@@ -627,7 +940,7 @@ def obtener_reportes_pendientes():
     cursor.execute("""
         SELECT *
         FROM reportes
-        WHERE estado = 'Pendiente'
+        WHERE estado NOT IN ('Realizado', 'Rechazado / No corresponde')
         ORDER BY id DESC
     """)
     reportes = cursor.fetchall()
@@ -646,7 +959,7 @@ def obtener_reportes_realizados():
     cursor.execute("""
         SELECT *
         FROM reportes
-        WHERE estado = 'Realizado'
+        WHERE estado IN ('Realizado', 'Rechazado / No corresponde')
         ORDER BY id DESC
     """)
     reportes = cursor.fetchall()
@@ -680,13 +993,13 @@ def actualizar_estado_reporte(reporte_id, nuevo_estado):
     if conexion is None:
         return False, "No se pudo conectar con la base de datos."
 
-    if nuevo_estado not in ["Pendiente", "Realizado"]:
+    if nuevo_estado not in ESTADOS_VALIDOS:
         return False, "Estado no válido."
 
     cursor = conexion.cursor()
 
     try:
-        if nuevo_estado == "Realizado":
+        if nuevo_estado in ESTADOS_FINALES:
             cursor.execute("""
                 UPDATE reportes
                 SET estado = %s,
@@ -808,7 +1121,12 @@ def obtener_estadisticas_generales():
         return {
             "total_reportes": 0,
             "pendientes": 0,
+            "en_revision": 0,
+            "asignado": 0,
+            "en_proceso": 0,
+            "activos": 0,
             "realizados": 0,
+            "rechazado": 0,
             "critica": 0,
             "alta": 0,
             "media": 0,
@@ -825,8 +1143,20 @@ def obtener_estadisticas_generales():
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'Pendiente'")
     pendientes = cursor.fetchone()["total"]
 
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'En revisi\u00f3n'")
+    en_revision = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'Asignado'")
+    asignado = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'En proceso'")
+    en_proceso = cursor.fetchone()["total"]
+
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'Realizado'")
     realizados = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE estado = 'Rechazado / No corresponde'")
+    rechazado = cursor.fetchone()["total"]
 
     cursor.execute("SELECT COUNT(*) AS total FROM reportes WHERE prioridad = 'Critica'")
     critica = cursor.fetchone()["total"]
@@ -849,10 +1179,17 @@ def obtener_estadisticas_generales():
     cursor.close()
     conexion.close()
 
+    activos = pendientes + en_revision + asignado + en_proceso
+
     return {
         "total_reportes": total_reportes,
         "pendientes": pendientes,
+        "en_revision": en_revision,
+        "asignado": asignado,
+        "en_proceso": en_proceso,
+        "activos": activos,
         "realizados": realizados,
+        "rechazado": rechazado,
         "critica": critica,
         "alta": alta,
         "media": media,
@@ -881,19 +1218,20 @@ def obtener_estadisticas_por_tipo():
     return datos
 
 
-def limpiar_datos_prueba():
-    conexion = obtener_conexion()
-    if conexion is None:
-        return False
+def obtener_puerto_local():
+    puerto_env = os.environ.get("PORT")
+    if puerto_env:
+        return int(puerto_env)
 
-    cursor = conexion.cursor()
-    cursor.execute("DELETE FROM reportes")
-    cursor.execute("DELETE FROM logs_cambios")
+    for puerto in (5000, 5001):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind(("127.0.0.1", puerto))
+                return puerto
+            except OSError:
+                continue
 
-    conexion.commit()
-    cursor.close()
-    conexion.close()
-    return True
+    return 5001
 
 
 # =========================
@@ -949,10 +1287,11 @@ def login():
 @login_requerido
 def admin():
     total_reportes = contar_total_reportes()
-    total_pendientes = contar_reportes_por_estado("Pendiente")
+    total_pendientes = contar_reportes_activos()
     total_realizados = contar_reportes_por_estado("Realizado")
     total_usuarios = contar_total_usuarios()
     reportes = obtener_reportes_recientes(8)
+    kpis = obtener_kpis_admin()
 
     return render_template(
         "admin.html",
@@ -960,7 +1299,8 @@ def admin():
         total_reportes=total_reportes,
         total_pendientes=total_pendientes,
         total_realizados=total_realizados,
-        total_usuarios=total_usuarios
+        total_usuarios=total_usuarios,
+        kpis=kpis
     )
 
 
@@ -1152,50 +1492,7 @@ def eliminar_usuario_admin(usuario_id):
 
 @app.route("/ciudadano")
 def ciudadano():
-    tipos_por_prioridad = [
-        {
-            "label": "Crítica (riesgo inmediato)",
-            "opciones": [
-                "Accidentes de tránsito",
-                "Cableado eléctrico caído",
-                "Incendios / humo",
-                "Fugas de gas",
-                "Derrumbes",
-                "Inundaciones graves"
-            ]
-        },
-        {
-            "label": "Alta (impacto fuerte)",
-            "opciones": [
-                "Alumbrado público apagado",
-                "Basura acumulada en gran cantidad",
-                "Baches peligrosos",
-                "Semáforos dañados",
-                "Animales muertos en vía pública"
-            ]
-        },
-        {
-            "label": "Media",
-            "opciones": [
-                "Poda de árboles",
-                "Limpieza de terrenos baldíos",
-                "Ruido excesivo",
-                "Problemas de señalización",
-                "Calles en mal estado (no crítico)"
-            ]
-        },
-        {
-            "label": "Baja",
-            "opciones": [
-                "Sugerencias",
-                "Reclamos administrativos",
-                "Mejoras estéticas",
-                "Consultas"
-            ]
-        }
-    ]
-
-    return render_template("ciudadano.html", tipos_por_prioridad=tipos_por_prioridad)
+    return render_template("ciudadano.html", tipos_por_prioridad=CATALOGO_TIPOS_POR_PRIORIDAD)
 
 
 # =========================
@@ -1404,11 +1701,473 @@ def descargar_comprobante(reporte_id):
         return redirect(url_for("ciudadano"))
 
 
+# ---------------------------------------------------------------------------
+# Exportación PDF — panel administrativo
+# ---------------------------------------------------------------------------
+
+def _pdf_tabla_reportes(titulo, subtitulo, lista_reportes):
+    """Genera un PDF en memoria con una tabla de reportes y lo devuelve como Response."""
+    from datetime import datetime
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    ancho, alto = A4
+
+    MARGEN_IZQ = 30
+    MARGEN_DER = ancho - 30
+    ALTO_FILA = 16
+    COLS = [30, 70, 175, 300, 375, 455, 530]  # x de inicio de cada columna
+    ENCABEZADOS = ["ID", "Fecha", "Nombre", "Tipo", "Prioridad", "Estado", ""]
+
+    def nueva_pagina():
+        pdf.showPage()
+        y_nuevo = alto - 40
+        pdf.setFont("Helvetica-Bold", 8)
+        for i, enc in enumerate(ENCABEZADOS[:-1]):
+            pdf.drawString(COLS[i], y_nuevo, enc)
+        pdf.setLineWidth(0.5)
+        pdf.line(MARGEN_IZQ, y_nuevo - 4, MARGEN_DER, y_nuevo - 4)
+        return y_nuevo - ALTO_FILA - 4
+
+    # Encabezado principal
+    y = alto - 45
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(MARGEN_IZQ, y, titulo)
+    y -= 20
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(MARGEN_IZQ, y, subtitulo)
+    y -= 14
+    pdf.setFont("Helvetica-Oblique", 9)
+    pdf.drawString(MARGEN_IZQ, y, f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    y -= 18
+
+    # Encabezados de tabla
+    pdf.setLineWidth(0.5)
+    pdf.line(MARGEN_IZQ, y, MARGEN_DER, y)
+    y -= 12
+    pdf.setFont("Helvetica-Bold", 8)
+    for i, enc in enumerate(ENCABEZADOS[:-1]):
+        pdf.drawString(COLS[i], y, enc)
+    y -= 4
+    pdf.line(MARGEN_IZQ, y, MARGEN_DER, y)
+    y -= ALTO_FILA
+
+    # Filas
+    pdf.setFont("Helvetica", 8)
+    for r in lista_reportes:
+        if y < 50:
+            y = nueva_pagina()
+
+        def trunc(val, largo):
+            s = str(val or "")
+            return s[:largo] + "…" if len(s) > largo else s
+
+        pdf.drawString(COLS[0], y, str(r.get("id", "")))
+        fecha = str(r.get("fecha", ""))[:10]
+        pdf.drawString(COLS[1], y, fecha)
+        pdf.drawString(COLS[2], y, trunc(r.get("nombre", ""), 16))
+        pdf.drawString(COLS[3], y, trunc(r.get("tipo", ""), 17))
+        pdf.drawString(COLS[4], y, trunc(r.get("prioridad", ""), 10))
+        pdf.drawString(COLS[5], y, trunc(r.get("estado", ""), 18))
+
+        y -= ALTO_FILA
+        if y > 50:
+            pdf.setLineWidth(0.2)
+            pdf.line(MARGEN_IZQ, y + ALTO_FILA - 2, MARGEN_DER, y + ALTO_FILA - 2)
+
+    # Pie
+    y -= 10
+    pdf.setFont("Helvetica-Oblique", 8)
+    pdf.drawString(MARGEN_IZQ, max(y, 30), f"Total de registros: {len(lista_reportes)}")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
+@app.route("/admin/exportar/todos")
+@login_requerido
+def exportar_pdf_todos():
+    lista = obtener_todos_los_reportes()
+    buffer = _pdf_tabla_reportes(
+        "Reporte General — Todos los reportes",
+        "Sistema Web de Reporte Urbano — Municipalidad de Presidente Franco",
+        lista
+    )
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=reporte_general_todos.pdf"
+    return response
+
+
+@app.route("/admin/exportar/pendientes")
+@login_requerido
+def exportar_pdf_pendientes():
+    lista = obtener_reportes_pendientes()
+    buffer = _pdf_tabla_reportes(
+        "Reporte General — Casos activos",
+        "Reportes que aún no han sido finalizados",
+        lista
+    )
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=reporte_pendientes.pdf"
+    return response
+
+
+@app.route("/admin/exportar/realizados")
+@login_requerido
+def exportar_pdf_realizados():
+    lista = obtener_reportes_realizados()
+    buffer = _pdf_tabla_reportes(
+        "Reporte General — Casos finalizados",
+        "Reportes con estado Realizado o Rechazado / No corresponde",
+        lista
+    )
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=reporte_realizados.pdf"
+    return response
+
+
+@app.route("/admin/exportar/estadisticas")
+@login_requerido
+def exportar_pdf_estadisticas():
+    from datetime import datetime
+
+    est = obtener_estadisticas_generales()
+    kpis = obtener_kpis_admin()
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    ancho, alto = A4
+
+    y = alto - 50
+    MARGEN = 50
+
+    def linea(texto, fuente="Helvetica", tam=11, extra=0):
+        nonlocal y
+        pdf.setFont(fuente, tam)
+        pdf.drawString(MARGEN, y, texto)
+        y -= (18 + extra)
+
+    def separador():
+        nonlocal y
+        pdf.setLineWidth(0.5)
+        pdf.line(MARGEN, y + 10, ancho - MARGEN, y + 10)
+        y -= 6
+
+    linea("INFORME DE ESTADÍSTICAS — REPORTE URBANO", "Helvetica-Bold", 14)
+    linea("Municipalidad de Presidente Franco", "Helvetica", 10)
+    linea(f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}", "Helvetica-Oblique", 9)
+    separador()
+
+    linea("RESUMEN GENERAL", "Helvetica-Bold", 12, extra=4)
+    linea(f"Total de reportes registrados:   {est.get('total_reportes', 0)}")
+    linea(f"Reportes activos (en gestión):   {est.get('activos', 0)}")
+    linea(f"Realizados:                      {est.get('realizados', 0)}")
+    linea(f"Rechazados / No corresponde:     {est.get('rechazado', 0)}")
+    separador()
+
+    linea("DESGLOSE POR ESTADO", "Helvetica-Bold", 12, extra=4)
+    linea(f"Pendiente:    {est.get('pendientes', 0)}")
+    linea(f"En revisión:  {est.get('en_revision', 0)}")
+    linea(f"Asignado:     {est.get('asignado', 0)}")
+    linea(f"En proceso:   {est.get('en_proceso', 0)}")
+    separador()
+
+    linea("DESGLOSE POR PRIORIDAD", "Helvetica-Bold", 12, extra=4)
+    linea(f"Crítica: {est.get('critica', 0)}")
+    linea(f"Alta:    {est.get('alta', 0)}")
+    linea(f"Media:   {est.get('media', 0)}")
+    linea(f"Baja:    {est.get('baja', 0)}")
+    separador()
+
+    linea("INDICADORES EJECUTIVOS", "Helvetica-Bold", 12, extra=4)
+    linea(f"Tasa de resolución:              {kpis.get('pct_resolucion', 0)}%")
+    linea(f"Críticos activos sin resolver:   {kpis.get('criticos_activos', 0)}")
+    linea(f"Reportes con ubicación en mapa:  {kpis.get('con_ubicacion', 0)}")
+    linea(f"Reportes con foto del problema:  {kpis.get('con_foto', 0)}")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=estadisticas_reporte_urbano.pdf"
+    return response
+
+
+# ---------------------------------------------------------------------------
+
 @app.route("/reportes")
 @login_requerido
 def reportes():
-    reportes = obtener_todos_los_reportes()
-    return render_template("reportes.html", reportes=reportes)
+    codigo = request.args.get("codigo", "").strip()
+    estado = request.args.get("estado", "").strip()
+    prioridad = request.args.get("prioridad", "").strip()
+    tipo = request.args.get("tipo", "").strip()
+    fecha = request.args.get("fecha", "").strip()
+    busqueda = request.args.get("busqueda", "").strip()
+    ordenar_por = request.args.get("ordenar_por", "id").strip().lower()
+    direccion = request.args.get("direccion", "desc").strip().lower()
+
+    try:
+        pagina = int(request.args.get("pagina", 1))
+    except (TypeError, ValueError):
+        pagina = 1
+
+    por_pagina = 20
+    hay_filtros = any([codigo, estado, prioridad, tipo, fecha, busqueda])
+
+    lista, total_resultados = obtener_reportes_filtrados(
+        codigo=codigo or None,
+        estado=estado or None,
+        prioridad=prioridad or None,
+        tipo=tipo or None,
+        fecha=fecha or None,
+        busqueda=busqueda or None,
+        ordenar_por=ordenar_por,
+        direccion=direccion,
+        pagina=max(1, pagina),
+        por_pagina=por_pagina,
+        aplicar_paginacion=True,
+    )
+
+    total_paginas = max(1, (total_resultados + por_pagina - 1) // por_pagina)
+    pagina_actual = min(max(1, pagina), total_paginas)
+
+    if pagina_actual != pagina and total_resultados > 0:
+        lista, _ = obtener_reportes_filtrados(
+            codigo=codigo or None,
+            estado=estado or None,
+            prioridad=prioridad or None,
+            tipo=tipo or None,
+            fecha=fecha or None,
+            busqueda=busqueda or None,
+            ordenar_por=ordenar_por,
+            direccion=direccion,
+            pagina=pagina_actual,
+            por_pagina=por_pagina,
+            aplicar_paginacion=True,
+        )
+
+    filtros = {
+        "codigo": codigo,
+        "estado": estado,
+        "prioridad": prioridad,
+        "tipo": tipo,
+        "fecha": fecha,
+        "busqueda": busqueda,
+    }
+
+    base_params = {
+        "codigo": codigo,
+        "estado": estado,
+        "prioridad": prioridad,
+        "tipo": tipo,
+        "fecha": fecha,
+        "busqueda": busqueda,
+        "ordenar_por": ordenar_por,
+        "direccion": direccion,
+    }
+
+    def url_reportes_con(params_extra):
+        merged = {**base_params, **params_extra}
+        limpios = {k: v for k, v in merged.items() if v not in (None, "")}
+        return url_for("reportes") + ("?" + urlencode(limpios) if limpios else "")
+
+    columnas_sort = ["id", "nombre", "tipo", "prioridad", "estado", "fecha"]
+    sort_urls = {}
+    for col in columnas_sort:
+        nueva_direccion = "asc" if (ordenar_por != col or direccion == "desc") else "desc"
+        sort_urls[col] = url_reportes_con({"ordenar_por": col, "direccion": nueva_direccion, "pagina": 1})
+
+    paginacion = []
+    for p in range(1, total_paginas + 1):
+        paginacion.append({
+            "numero": p,
+            "actual": p == pagina_actual,
+            "url": url_reportes_con({"pagina": p}),
+        })
+
+    prev_url = url_reportes_con({"pagina": pagina_actual - 1}) if pagina_actual > 1 else None
+    next_url = url_reportes_con({"pagina": pagina_actual + 1}) if pagina_actual < total_paginas else None
+    exportar_url = url_for("exportar_pdf_reportes_filtrados") + ("?" + urlencode({k: v for k, v in base_params.items() if v not in (None, "")}) if any(base_params.values()) else "")
+
+    return render_template(
+        "reportes.html",
+        reportes=lista,
+        filtros=filtros,
+        hay_filtros=hay_filtros,
+        total_resultados=total_resultados,
+        pagina_actual=pagina_actual,
+        total_paginas=total_paginas,
+        paginacion=paginacion,
+        prev_url=prev_url,
+        next_url=next_url,
+        ordenar_por=ordenar_por,
+        direccion=direccion,
+        sort_urls=sort_urls,
+        exportar_url=exportar_url,
+    )
+
+
+@app.route("/reportes/exportar/pdf")
+@login_requerido
+def exportar_pdf_reportes_filtrados():
+    codigo = request.args.get("codigo", "").strip()
+    estado = request.args.get("estado", "").strip()
+    prioridad = request.args.get("prioridad", "").strip()
+    tipo = request.args.get("tipo", "").strip()
+    fecha = request.args.get("fecha", "").strip()
+    busqueda = request.args.get("busqueda", "").strip()
+    ordenar_por = request.args.get("ordenar_por", "id").strip().lower()
+    direccion = request.args.get("direccion", "desc").strip().lower()
+
+    lista, total = obtener_reportes_filtrados(
+        codigo=codigo or None,
+        estado=estado or None,
+        prioridad=prioridad or None,
+        tipo=tipo or None,
+        fecha=fecha or None,
+        busqueda=busqueda or None,
+        ordenar_por=ordenar_por,
+        direccion=direccion,
+        aplicar_paginacion=False,
+    )
+
+    subtitulo = "Listado filtrado y ordenado desde el módulo de reportes"
+    if total == 0:
+        subtitulo = "Sin resultados para los filtros seleccionados"
+
+    buffer = _pdf_tabla_reportes(
+        "Reporte General — Vista actual de reportes",
+        subtitulo,
+        lista,
+    )
+
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=reportes_filtrados.pdf"
+    return response
+
+
+@app.route("/reporte/<int:reporte_id>/pdf")
+@login_requerido
+def exportar_pdf_detalle_reporte(reporte_id):
+    from datetime import datetime
+    if reporte_id <= 0:
+        flash("ID de reporte inválido.", "error")
+        return redirect(url_for("reportes"))
+
+    reporte = obtener_reporte_por_id(reporte_id)
+    if not reporte:
+        flash("No se encontró el reporte.", "error")
+        return redirect(url_for("reportes"))
+
+    try:
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        ancho, alto = A4
+        MARGEN = 50
+
+        y = alto - 50
+        codigo = reporte.get("codigo_reporte") or str(reporte["id"])
+
+        # Encabezado
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(MARGEN, y, "DETALLE DEL REPORTE")
+        y -= 22
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(MARGEN, y, "Sistema Web de Reporte Urbano — Municipalidad de Presidente Franco")
+        y -= 14
+        pdf.setFont("Helvetica-Oblique", 9)
+        pdf.drawString(MARGEN, y, f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        y -= 6
+        pdf.setLineWidth(1)
+        pdf.line(MARGEN, y, ancho - MARGEN, y)
+        y -= 20
+
+        # Datos del reporte
+        def fila(etiqueta, valor):
+            nonlocal y
+            if y < 60:
+                pdf.showPage()
+                y = alto - 50
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(MARGEN, y, f"{etiqueta}:")
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(MARGEN + 160, y, str(valor or "—"))
+            y -= 18
+
+        fila("Código", codigo)
+        fila("Estado", reporte.get("estado", ""))
+        fila("Prioridad", reporte.get("prioridad", ""))
+        fila("Nombre del ciudadano", reporte.get("nombre", ""))
+        fila("Teléfono", reporte.get("telefono", ""))
+        fila("Correo", reporte.get("correo", ""))
+        fila("Tipo de incidencia", reporte.get("tipo", ""))
+        fila("Ubicación", reporte.get("ubicacion", ""))
+        fila("Fecha de registro", reporte.get("fecha", ""))
+        fila("Hora de registro", reporte.get("hora", ""))
+        if reporte.get("fecha_finalizacion"):
+            fila("Fecha de finalización", reporte.get("fecha_finalizacion", ""))
+        if reporte.get("hora_finalizacion"):
+            fila("Hora de finalización", reporte.get("hora_finalizacion", ""))
+
+        # Descripción (puede ser larga)
+        y -= 4
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(MARGEN, y, "Descripción:")
+        y -= 16
+        pdf.setFont("Helvetica", 10)
+        descripcion = str(reporte.get("descripcion") or "")
+        max_chars = 90
+        for i in range(0, max(len(descripcion), 1), max_chars):
+            if y < 60:
+                pdf.showPage()
+                y = alto - 50
+            pdf.drawString(MARGEN + 10, y, descripcion[i:i + max_chars])
+            y -= 15
+
+        # Observación admin
+        if reporte.get("observacion_admin"):
+            y -= 6
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(MARGEN, y, "Observación administrativa:")
+            y -= 16
+            pdf.setFont("Helvetica", 10)
+            obs = str(reporte["observacion_admin"])
+            for i in range(0, len(obs), max_chars):
+                if y < 60:
+                    pdf.showPage()
+                    y = alto - 50
+                pdf.drawString(MARGEN + 10, y, obs[i:i + max_chars])
+                y -= 15
+
+        # Pie
+        y -= 10
+        pdf.setLineWidth(0.5)
+        pdf.line(MARGEN, max(y, 40), ancho - MARGEN, max(y, 40))
+        y -= 14
+        pdf.setFont("Helvetica-Oblique", 8)
+        pdf.drawString(MARGEN, max(y, 28), "Documento generado automáticamente por el Sistema de Reporte Urbano.")
+
+        pdf.showPage()
+        pdf.save()
+        buffer.seek(0)
+
+        response = make_response(buffer.read())
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=reporte_{codigo}.pdf"
+        return response
+    except Exception as e:
+        print(f"Error al generar PDF de detalle: {e}")
+        flash("Error al generar el PDF.", "error")
+        return redirect(url_for("detalle_reporte", reporte_id=reporte_id))
 
 
 @app.route("/reporte/<int:reporte_id>")
@@ -1556,8 +2315,6 @@ def estadisticas():
 # =========================
 # RUTA DEBUG - SERVIR GEOJSON EXPLÍCITAMENTE
 # =========================
-import json
-
 @app.route("/api/geojson")
 def api_geojson():
     """Ruta explícita para servir el GeoJSON con headers correctos"""
@@ -1565,8 +2322,6 @@ def api_geojson():
         geojson_path = os.path.join(BASE_DIR, "static", "presidente_franco_boundary.geojson")
         with open(geojson_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
-        
-        from flask import jsonify
         return jsonify(data)
     except Exception as e:
         print(f"Error al servir GeoJSON: {e}")
@@ -1581,4 +2336,8 @@ inicializar_bd()
 # INICIO LOCAL
 # =========================
 if __name__ == "__main__":
-    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1")
+    app.run(
+        host=os.environ.get("FLASK_HOST", "127.0.0.1"),
+        port=obtener_puerto_local(),
+        debug=os.environ.get("FLASK_DEBUG", "0") == "1"
+    )

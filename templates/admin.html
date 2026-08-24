@@ -36,6 +36,58 @@
     .stat-card.done::before { background: linear-gradient(90deg, #16a34a, #4ade80); }
     .stat-card.users::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
 
+    /* KPIs ejecutivos */
+    .kpi-exec-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .kpi-exec-card {
+        background: white;
+        border-radius: 18px;
+        padding: 20px 22px;
+        box-shadow: 0 6px 22px rgba(15, 23, 42, 0.07);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        border-left: 5px solid transparent;
+    }
+
+    .kpi-exec-card.resolucion { border-color: #22c55e; }
+    .kpi-exec-card.criticos   { border-color: #ef4444; }
+    .kpi-exec-card.ubicacion  { border-color: #3b82f6; }
+    .kpi-exec-card.foto       { border-color: #a855f7; }
+
+    .kpi-exec-icon {
+        font-size: 30px;
+        flex-shrink: 0;
+        line-height: 1;
+    }
+
+    .kpi-exec-body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .kpi-exec-value {
+        font-size: 26px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+
+    .kpi-exec-label {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .kpi-exec-card.criticos .kpi-exec-value { color: #b91c1c; }
+    .kpi-exec-card.resolucion .kpi-exec-value { color: #15803d; }
+
     .stat-label {
         font-size: 13px;
         color: #64748b;
@@ -159,6 +211,26 @@
         color: #166534;
     }
 
+    .badge-revision {
+        background: #cffafe;
+        color: #164e63;
+    }
+
+    .badge-asignado {
+        background: #ede9fe;
+        color: #4c1d95;
+    }
+
+    .badge-proceso {
+        background: #ffedd5;
+        color: #7c2d12;
+    }
+
+    .badge-rechazado {
+        background: #fee2e2;
+        color: #7f1d1d;
+    }
+
     .badge-critica {
         background: #7f1d1d;
         color: #fecaca;
@@ -210,6 +282,10 @@
             grid-template-columns: repeat(2, 1fr);
         }
 
+        .kpi-exec-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
         .dashboard-grid {
             grid-template-columns: 1fr;
         }
@@ -217,7 +293,8 @@
 
     @media (max-width: 640px) {
         .stats-grid,
-        .quick-actions {
+        .quick-actions,
+        .kpi-exec-grid {
             grid-template-columns: 1fr;
         }
 
@@ -234,6 +311,41 @@
 {% endblock %}
 
 {% block content %}
+{% set kpis = kpis if kpis is defined else {} %}
+<div class="kpi-exec-grid">
+    <div class="kpi-exec-card resolucion">
+        <div class="kpi-exec-icon">📈</div>
+        <div class="kpi-exec-body">
+            <div class="kpi-exec-value">{{ kpis.pct_resolucion if kpis.pct_resolucion is defined else 0 }}%</div>
+            <div class="kpi-exec-label">Tasa de resolución</div>
+        </div>
+    </div>
+
+    <div class="kpi-exec-card criticos">
+        <div class="kpi-exec-icon">🔥</div>
+        <div class="kpi-exec-body">
+            <div class="kpi-exec-value">{{ kpis.criticos_activos if kpis.criticos_activos is defined else 0 }}</div>
+            <div class="kpi-exec-label">Críticos activos sin resolver</div>
+        </div>
+    </div>
+
+    <div class="kpi-exec-card ubicacion">
+        <div class="kpi-exec-icon">📍</div>
+        <div class="kpi-exec-body">
+            <div class="kpi-exec-value">{{ kpis.con_ubicacion if kpis.con_ubicacion is defined else 0 }}</div>
+            <div class="kpi-exec-label">Reportes con ubicación en mapa</div>
+        </div>
+    </div>
+
+    <div class="kpi-exec-card foto">
+        <div class="kpi-exec-icon">📷</div>
+        <div class="kpi-exec-body">
+            <div class="kpi-exec-value">{{ kpis.con_foto if kpis.con_foto is defined else 0 }}</div>
+            <div class="kpi-exec-label">Reportes con foto del problema</div>
+        </div>
+    </div>
+</div>
+
 <div class="stats-grid">
     <div class="stat-card total">
         <div class="stat-label">Total de reportes</div>
@@ -242,9 +354,9 @@
     </div>
 
     <div class="stat-card pending">
-        <div class="stat-label">Pendientes</div>
+        <div class="stat-label">En gesti\u00f3n</div>
         <div class="stat-number">{{ total_pendientes if total_pendientes is defined else 0 }}</div>
-        <div class="stat-extra">Reportes que requieren atención</div>
+        <div class="stat-extra">Reportes activos en el sistema</div>
     </div>
 
     <div class="stat-card done">
@@ -300,8 +412,16 @@
                             <td>
                                 {% if reporte.estado == 'Pendiente' %}
                                     <span class="badge badge-pendiente">Pendiente</span>
-                                {% else %}
+                                {% elif reporte.estado == 'En revisi\u00f3n' %}
+                                    <span class="badge badge-revision">En revisi\u00f3n</span>
+                                {% elif reporte.estado == 'Asignado' %}
+                                    <span class="badge badge-asignado">Asignado</span>
+                                {% elif reporte.estado == 'En proceso' %}
+                                    <span class="badge badge-proceso">En proceso</span>
+                                {% elif reporte.estado == 'Realizado' %}
                                     <span class="badge badge-realizado">Realizado</span>
+                                {% else %}
+                                    <span class="badge badge-rechazado">Rechazado</span>
                                 {% endif %}
                             </td>
                             <td>{{ reporte.fecha }}</td>
@@ -355,4 +475,34 @@
         </div>
     </div>
 </div>
+
+<div class="card" style="margin-top: 24px;">
+    <div class="section-title">Exportar reportes PDF</div>
+    <div class="section-subtitle">
+        Descarga un informe en formato PDF directamente desde el panel.
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 18px;">
+        <a href="{{ url_for('exportar_pdf_todos') }}" class="action-card" style="border-left: 4px solid #1d4ed8;">
+            <div class="action-icon">📄</div>
+            <div class="action-title">Todos los reportes</div>
+            <div class="action-text">Exporta el listado completo de todas las incidencias registradas.</div>
+        </a>
+        <a href="{{ url_for('exportar_pdf_pendientes') }}" class="action-card" style="border-left: 4px solid #d97706;">
+            <div class="action-icon">📋</div>
+            <div class="action-title">Pendientes</div>
+            <div class="action-text">Solo los reportes activos que aún no han sido finalizados.</div>
+        </a>
+        <a href="{{ url_for('exportar_pdf_realizados') }}" class="action-card" style="border-left: 4px solid #16a34a;">
+            <div class="action-icon">✅</div>
+            <div class="action-title">Realizados</div>
+            <div class="action-text">Casos finalizados: realizados y rechazados / no corresponde.</div>
+        </a>
+        <a href="{{ url_for('exportar_pdf_estadisticas') }}" class="action-card" style="border-left: 4px solid #7c3aed;">
+            <div class="action-icon">📊</div>
+            <div class="action-title">Estadísticas</div>
+            <div class="action-text">Informe ejecutivo con resumen, estados, prioridades e indicadores.</div>
+        </a>
+    </div>
+</div>
+
 {% endblock %}

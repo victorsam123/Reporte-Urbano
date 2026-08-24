@@ -594,8 +594,10 @@
 
 {% block content %}
 {% set total_general = resumen.total_reportes if resumen.total_reportes > 0 else 1 %}
+{% set pct_activos = (resumen.activos / total_general * 100)|round(1) %}
 {% set pct_pendientes = (resumen.pendientes / total_general * 100)|round(1) %}
 {% set pct_realizados = (resumen.realizados / total_general * 100)|round(1) %}
+{% set pct_rechazado = (resumen.rechazado / total_general * 100)|round(1) %}
 {% set pct_critica = (resumen.critica / total_general * 100)|round(1) %}
 {% set pct_alta = (resumen.alta / total_general * 100)|round(1) %}
 {% set pct_media = (resumen.media / total_general * 100)|round(1) %}
@@ -605,12 +607,15 @@
 {% set tipo_frecuente = por_tipo[0].tipo if por_tipo else "Sin datos" %}
 {% set total_tipo_frecuente = por_tipo[0].total if por_tipo else 0 %}
 
-{% if resumen.pendientes >= resumen.realizados %}
-    {% set estado_predominante = "Pendiente" %}
-    {% set estado_predominante_total = resumen.pendientes %}
-{% else %}
+{% if resumen.activos >= resumen.realizados and resumen.activos >= resumen.rechazado %}
+    {% set estado_predominante = "En gesti\u00f3n" %}
+    {% set estado_predominante_total = resumen.activos %}
+{% elif resumen.realizados >= resumen.activos and resumen.realizados >= resumen.rechazado %}
     {% set estado_predominante = "Realizado" %}
     {% set estado_predominante_total = resumen.realizados %}
+{% else %}
+    {% set estado_predominante = "Rechazado" %}
+    {% set estado_predominante_total = resumen.rechazado %}
 {% endif %}
 
 {% if resumen.critica >= resumen.alta and resumen.critica >= resumen.media and resumen.critica >= resumen.baja %}
@@ -641,12 +646,12 @@
 
     <div class="stat-card card-pendientes">
         <div class="stat-top">
-            <div class="stat-label">Pendientes</div>
+            <div class="stat-label">En gesti\u00f3n</div>
             <div class="stat-icon">⏳</div>
         </div>
-        <div class="stat-number">{{ resumen.pendientes }}</div>
-        <div class="stat-description">Reportes que aún requieren atención o seguimiento administrativo.</div>
-        <div class="kpi-extra">{{ pct_pendientes }}% del total general</div>
+        <div class="stat-number">{{ resumen.activos }}</div>
+        <div class="stat-description">Reportes activos (Pendiente, En revisi\u00f3n, Asignado, En proceso) que requieren atenci\u00f3n.</div>
+        <div class="kpi-extra">{{ pct_activos }}% del total general</div>
     </div>
 
     <div class="stat-card card-realizados">
@@ -655,8 +660,18 @@
             <div class="stat-icon">✅</div>
         </div>
         <div class="stat-number">{{ resumen.realizados }}</div>
-        <div class="stat-description">Incidencias ya finalizadas con resolución completada en el sistema.</div>
+        <div class="stat-description">Incidencias ya finalizadas con resoluci\u00f3n completada en el sistema.</div>
         <div class="kpi-extra">{{ pct_realizados }}% del total general</div>
+    </div>
+
+    <div class="stat-card card-rechazado" style="border-left: 4px solid #ef4444;">
+        <div class="stat-top">
+            <div class="stat-label">Rechazados</div>
+            <div class="stat-icon">❌</div>
+        </div>
+        <div class="stat-number" style="color: #b91c1c;">{{ resumen.rechazado }}</div>
+        <div class="stat-description">Reportes marcados como rechazados o no correspondientes al sistema.</div>
+        <div class="kpi-extra">{{ pct_rechazado }}% del total general</div>
     </div>
 
     <div class="stat-card card-critica">
@@ -701,11 +716,11 @@
 
     <div class="stat-card card-ubicacion">
         <div class="stat-top">
-            <div class="stat-label">Con ubicación GPS</div>
+            <div class="stat-label">Con enlace de ubicación</div>
             <div class="stat-icon">📍</div>
         </div>
         <div class="stat-number">{{ resumen.con_ubicacion }}</div>
-        <div class="stat-description">Reportes que incluyen coordenadas GPS georreferenciadas del lugar del incidente.</div>
+        <div class="stat-description">Reportes que incluyen un enlace de mapa o referencia de ubicación del incidente.</div>
         <div class="kpi-extra">{{ pct_con_ubicacion }}% del total general</div>
     </div>
 
@@ -812,8 +827,10 @@
     {% endif %}
 </div>
 {% set total_general = resumen.total_reportes if resumen.total_reportes > 0 else 1 %}
-{% set porcentaje_pendientes = (resumen.pendientes / total_general * 100)|round(1) %}
-{% set porcentaje_realizados = (resumen.realizados / total_general * 100)|round(1) %}
+{% set pct_donut_activos = (resumen.activos / total_general * 100)|round(1) %}
+{% set pct_donut_realizados = (resumen.realizados / total_general * 100)|round(1) %}
+{% set pct_donut_rechazado = (resumen.rechazado / total_general * 100)|round(1) %}
+{% set cum_activos_realizados = (pct_donut_activos + pct_donut_realizados)|round(1) %}
 
 <div class="estado-chart-card">
     <h3>Distribución general por estado</h3>
@@ -828,8 +845,9 @@
             <div
                 class="donut-chart"
                 style="background: conic-gradient(
-                    #f59e0b 0% {{ porcentaje_pendientes }}%,
-                    #22c55e {{ porcentaje_pendientes }}% 100%
+                    #f59e0b 0% {{ pct_donut_activos }}%,
+                    #22c55e {{ pct_donut_activos }}% {{ cum_activos_realizados }}%,
+                    #ef4444 {{ cum_activos_realizados }}% 100%
                 );"
             >
                 <div class="donut-center">
@@ -843,14 +861,14 @@
             <div class="legend-item">
                 <div class="legend-color pendiente"></div>
                 <div class="legend-content">
-                    <div class="legend-title">Pendientes</div>
+                    <div class="legend-title">En gestión</div>
                     <div class="legend-text">
-                        Representan los casos que siguen en proceso de atención.
+                        Casos activos que siguen en proceso de atención.
                     </div>
                 </div>
                 <div class="legend-number">
-                    {{ resumen.pendientes }}<br>
-                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ porcentaje_pendientes }}%</span>
+                    {{ resumen.activos }}<br>
+                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ pct_donut_activos }}%</span>
                 </div>
             </div>
 
@@ -864,7 +882,21 @@
                 </div>
                 <div class="legend-number">
                     {{ resumen.realizados }}<br>
-                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ porcentaje_realizados }}%</span>
+                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ pct_donut_realizados }}%</span>
+                </div>
+            </div>
+
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ef4444;"></div>
+                <div class="legend-content">
+                    <div class="legend-title">Rechazados</div>
+                    <div class="legend-text">
+                        Reportes marcados como rechazados o no correspondientes.
+                    </div>
+                </div>
+                <div class="legend-number">
+                    {{ resumen.rechazado }}<br>
+                    <span style="font-size:12px; color:#64748b; font-weight:600;">{{ pct_donut_rechazado }}%</span>
                 </div>
             </div>
         </div>
@@ -925,9 +957,9 @@
         </div>
 
         <div class="exec-box">
-            <div class="exec-title">Con ubicación GPS</div>
+            <div class="exec-title">Con enlace de ubicación</div>
             <div class="exec-number">{{ pct_con_ubicacion }}%</div>
-            <div class="exec-desc">Reportes con coordenadas georreferenciadas.</div>
+            <div class="exec-desc">Reportes con enlace de mapa asociado.</div>
             <span class="percent-badge">{{ resumen.con_ubicacion }} casos</span>
         </div>
 

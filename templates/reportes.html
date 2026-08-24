@@ -7,19 +7,21 @@
 {% block extra_css %}
 <style>
     .table-card {
-        background: white;
+        background: #ffffff;
         border-radius: 20px;
         box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        border: 1px solid #e2e8f0;
         overflow: hidden;
     }
 
     .table-header {
-        padding: 22px;
+        padding: 24px;
         border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     }
 
     .table-header h3 {
-        font-size: 20px;
+        font-size: 21px;
         color: #0f172a;
         margin-bottom: 6px;
     }
@@ -29,8 +31,126 @@
         font-size: 14px;
     }
 
+    .filtros-form {
+        padding: 18px 22px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .filtros-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .filtro-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .filtro-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .filtro-input,
+    .filtro-select {
+        padding: 10px 12px;
+        border: 1.5px solid #dbe3ef;
+        border-radius: 10px;
+        font-size: 13px;
+        color: #0f172a;
+        background: #ffffff;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .filtro-input:focus,
+    .filtro-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .filtros-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn-filtrar {
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        color: #ffffff;
+        border: none;
+        padding: 9px 18px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn-filtrar:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+
+    .btn-limpiar {
+        color: #475569;
+        font-size: 13px;
+        text-decoration: none;
+        padding: 9px 14px;
+        border-radius: 10px;
+        border: 1.5px solid #dbe3ef;
+        background: #ffffff;
+        font-weight: 600;
+        transition: border-color 0.2s, color 0.2s;
+    }
+
+    .btn-limpiar:hover {
+        border-color: #94a3b8;
+        color: #0f172a;
+    }
+
+    .btn-exportar {
+        color: #0f172a;
+        font-size: 13px;
+        text-decoration: none;
+        padding: 9px 14px;
+        border-radius: 10px;
+        border: 1.5px solid #cbd5e1;
+        background: #ffffff;
+        font-weight: 700;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .btn-exportar:hover {
+        border-color: #64748b;
+        transform: translateY(-1px);
+    }
+
+    .resultado-info {
+        font-size: 13px;
+        color: #64748b;
+        margin-left: auto;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+    }
+
+    .resultado-info strong {
+        color: #0f172a;
+    }
+
     .table-wrapper {
         overflow-x: auto;
+        background: #ffffff;
     }
 
     .report-table {
@@ -41,16 +161,67 @@
 
     .report-table th,
     .report-table td {
-        padding: 14px 16px;
+        padding: 13px 14px;
         border-bottom: 1px solid #e2e8f0;
         text-align: left;
-        font-size: 14px;
+        font-size: 13px;
+        vertical-align: middle;
     }
 
     .report-table th {
-        background: #f8fafc;
+        background: #f1f5f9;
         color: #334155;
         font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        font-size: 11px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    .th-link {
+        color: inherit;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: 700;
+    }
+
+    .th-link:hover {
+        color: #0f172a;
+    }
+
+    .sort-ind {
+        font-size: 10px;
+        color: #64748b;
+        line-height: 1;
+    }
+
+    .report-table tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .col-id {
+        font-weight: 700;
+        color: #0f172a;
+        white-space: nowrap;
+    }
+
+    .col-fecha,
+    .col-telefono {
+        white-space: nowrap;
+        color: #334155;
+    }
+
+    .col-nombre,
+    .col-tipo {
+        min-width: 140px;
+    }
+
+    .col-accion {
+        white-space: nowrap;
     }
 
     .badge {
@@ -59,6 +230,7 @@
         border-radius: 999px;
         font-size: 12px;
         font-weight: 700;
+        white-space: nowrap;
     }
 
     .badge-pendiente {
@@ -69,6 +241,26 @@
     .badge-realizado {
         background: #dcfce7;
         color: #166534;
+    }
+
+    .badge-revision {
+        background: #cffafe;
+        color: #164e63;
+    }
+
+    .badge-asignado {
+        background: #ede9fe;
+        color: #4c1d95;
+    }
+
+    .badge-proceso {
+        background: #ffedd5;
+        color: #7c2d12;
+    }
+
+    .badge-rechazado {
+        background: #fee2e2;
+        color: #7f1d1d;
     }
 
     .badge-critica {
@@ -94,11 +286,117 @@
     .btn-view {
         text-decoration: none;
         background: linear-gradient(135deg, #1d4ed8, #38bdf8);
-        color: white;
-        padding: 8px 12px;
+        color: #ffffff;
+        padding: 7px 11px;
         border-radius: 10px;
         font-size: 12px;
         font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn-view:hover {
+        transform: translateY(-1px);
+        opacity: 0.92;
+    }
+
+    .empty-row td {
+        text-align: center;
+        padding: 26px 14px;
+        color: #64748b;
+        font-size: 14px;
+        background: #f8fafc;
+    }
+
+    .paginacion {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+        flex-wrap: wrap;
+    }
+
+    .paginacion-info {
+        font-size: 13px;
+        color: #475569;
+    }
+
+    .paginacion-links {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .page-link {
+        min-width: 34px;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 9px;
+        border: 1px solid #dbe3ef;
+        background: #ffffff;
+        color: #334155;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .page-link:hover {
+        border-color: #94a3b8;
+    }
+
+    .page-link.active {
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        border-color: #1d4ed8;
+        color: #ffffff;
+    }
+
+    @media (max-width: 980px) {
+        .filtros-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .resultado-info {
+            margin-left: 0;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .filtros-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .table-header,
+        .filtros-form {
+            padding: 16px;
+        }
+
+        .filtros-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .btn-filtrar,
+        .btn-limpiar,
+        .btn-exportar {
+            text-align: center;
+        }
+
+        .paginacion {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .paginacion-links {
+            justify-content: flex-start;
+        }
     }
 </style>
 {% endblock %}
@@ -110,27 +408,93 @@
         <p>Visualiza todos los casos registrados dentro del sistema.</p>
     </div>
 
+    <form method="GET" action="{{ url_for('reportes') }}" class="filtros-form">
+        <div class="filtros-grid">
+            <div class="filtro-group">
+                <label class="filtro-label">C&oacute;digo de reporte</label>
+                <input type="text" name="codigo" class="filtro-input"
+                       placeholder="Ej: RPT-0001"
+                       value="{{ filtros.codigo if filtros is defined else '' }}">
+            </div>
+
+            <div class="filtro-group">
+                <label class="filtro-label">Estado</label>
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    {% set estados_lista = ["Pendiente", "En revisi\u00f3n", "Asignado", "En proceso", "Realizado", "Rechazado / No corresponde"] %}
+                    {% for est in estados_lista %}
+                    <option value="{{ est }}" {% if filtros is defined and filtros.estado == est %}selected{% endif %}>{{ est }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filtro-group">
+                <label class="filtro-label">Prioridad</label>
+                <select name="prioridad" class="filtro-select">
+                    <option value="">Todas las prioridades</option>
+                    {% for p in ["Critica", "Alta", "Media", "Baja"] %}
+                    <option value="{{ p }}" {% if filtros is defined and filtros.prioridad == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filtro-group">
+                <label class="filtro-label">Tipo de incidencia</label>
+                <input type="text" name="tipo" class="filtro-input"
+                       placeholder="Ej: Bache, Alumbrado..."
+                       value="{{ filtros.tipo if filtros is defined else '' }}">
+            </div>
+
+            <div class="filtro-group">
+                <label class="filtro-label">Fecha</label>
+                <input type="date" name="fecha" class="filtro-input"
+                       value="{{ filtros.fecha if filtros is defined else '' }}">
+            </div>
+
+            <div class="filtro-group">
+                <label class="filtro-label">Nombre o tel&eacute;fono</label>
+                <input type="text" name="busqueda" class="filtro-input"
+                       placeholder="Buscar por nombre o tel&eacute;fono..."
+                       value="{{ filtros.busqueda if filtros is defined else '' }}">
+            </div>
+        </div>
+
+        <div class="filtros-actions">
+            <button type="submit" class="btn-filtrar">&#128269; Filtrar</button>
+            <a href="{{ url_for('reportes') }}" class="btn-limpiar">Limpiar</a>
+            <a href="{{ exportar_url if exportar_url is defined else url_for('exportar_pdf_reportes_filtrados') }}" class="btn-exportar">&#128196; Exportar PDF</a>
+            <span class="resultado-info">
+                {% if hay_filtros is defined and hay_filtros %}
+                    Se encontraron <strong>{{ total_resultados if total_resultados is defined else (reportes | length) }}</strong> resultado(s)
+                {% else %}
+                    <strong>{{ total_resultados if total_resultados is defined else (reportes | length) }}</strong> reportes en total
+                {% endif %}
+            </span>
+        </div>
+    </form>
+
     <div class="table-wrapper">
         <table class="report-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
+                    <th><a class="th-link" href="{{ sort_urls.id if sort_urls is defined else '#' }}">ID <span class="sort-ind">{% if ordenar_por == 'id' %}{{ '▲' if direccion == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+                    <th><a class="th-link" href="{{ sort_urls.nombre if sort_urls is defined else '#' }}">Nombre <span class="sort-ind">{% if ordenar_por == 'nombre' %}{{ '▲' if direccion == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
                     <th>Teléfono</th>
-                    <th>Tipo</th>
-                    <th>Prioridad</th>
-                    <th>Estado</th>
-                    <th>Fecha</th>
+                    <th><a class="th-link" href="{{ sort_urls.tipo if sort_urls is defined else '#' }}">Tipo <span class="sort-ind">{% if ordenar_por == 'tipo' %}{{ '▲' if direccion == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+                    <th><a class="th-link" href="{{ sort_urls.prioridad if sort_urls is defined else '#' }}">Prioridad <span class="sort-ind">{% if ordenar_por == 'prioridad' %}{{ '▲' if direccion == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+                    <th><a class="th-link" href="{{ sort_urls.estado if sort_urls is defined else '#' }}">Estado <span class="sort-ind">{% if ordenar_por == 'estado' %}{{ '▲' if direccion == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
+                    <th><a class="th-link" href="{{ sort_urls.fecha if sort_urls is defined else '#' }}">Fecha <span class="sort-ind">{% if ordenar_por == 'fecha' %}{{ '▲' if direccion == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a></th>
                     <th>Acción</th>
                 </tr>
             </thead>
             <tbody>
+                {% if reportes %}
                 {% for reporte in reportes %}
                 <tr>
-                    <td>{{ reporte.id }}</td>
-                    <td>{{ reporte.nombre }}</td>
-                    <td>{{ reporte.telefono }}</td>
-                    <td>{{ reporte.tipo }}</td>
+                    <td class="col-id">{{ reporte.id }}</td>
+                    <td class="col-nombre">{{ reporte.nombre }}</td>
+                    <td class="col-telefono">{{ reporte.telefono }}</td>
+                    <td class="col-tipo">{{ reporte.tipo }}</td>
                     <td>
                         {% if reporte.prioridad == 'Critica' %}
                             <span class="badge badge-critica">Crítica</span>
@@ -145,18 +509,54 @@
                     <td>
                         {% if reporte.estado == 'Pendiente' %}
                             <span class="badge badge-pendiente">Pendiente</span>
-                        {% else %}
+                        {% elif reporte.estado == 'En revisi\u00f3n' %}
+                            <span class="badge badge-revision">En revisi\u00f3n</span>
+                        {% elif reporte.estado == 'Asignado' %}
+                            <span class="badge badge-asignado">Asignado</span>
+                        {% elif reporte.estado == 'En proceso' %}
+                            <span class="badge badge-proceso">En proceso</span>
+                        {% elif reporte.estado == 'Realizado' %}
                             <span class="badge badge-realizado">Realizado</span>
+                        {% else %}
+                            <span class="badge badge-rechazado">Rechazado</span>
                         {% endif %}
                     </td>
-                    <td>{{ reporte.fecha }}</td>
-                    <td>
+                    <td class="col-fecha">{{ reporte.fecha }}</td>
+                    <td class="col-accion">
                         <a href="{{ url_for('detalle_reporte', reporte_id=reporte.id) }}" class="btn-view">Ver detalle</a>
                     </td>
                 </tr>
                 {% endfor %}
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="8">
+                        No se encontraron reportes con los filtros aplicados.
+                    </td>
+                </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
+
+    {% if total_paginas is defined and total_paginas > 1 %}
+    <div class="paginacion">
+        <div class="paginacion-info">
+            Página <strong>{{ pagina_actual }}</strong> de <strong>{{ total_paginas }}</strong>
+        </div>
+        <div class="paginacion-links">
+            {% if prev_url %}
+            <a href="{{ prev_url }}" class="page-link">&laquo;</a>
+            {% endif %}
+
+            {% for item in paginacion %}
+            <a href="{{ item.url }}" class="page-link {% if item.actual %}active{% endif %}">{{ item.numero }}</a>
+            {% endfor %}
+
+            {% if next_url %}
+            <a href="{{ next_url }}" class="page-link">&raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

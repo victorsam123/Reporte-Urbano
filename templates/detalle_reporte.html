@@ -6,6 +6,7 @@
 
 {% block topbar_actions %}
 <a href="{{ url_for('reportes') }}" class="btn-top btn-light">Volver</a>
+<a href="{{ url_for('exportar_pdf_detalle_reporte', reporte_id=reporte.id) }}" class="btn-top btn-primary" target="_blank">Imprimir PDF</a>
 {% endblock %}
 
 {% block extra_css %}
@@ -74,6 +75,28 @@
         color: white;
     }
 
+    .btn-save-estado {
+        background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+        color: white;
+    }
+
+    .select-estado {
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-family: 'Poppins', sans-serif;
+        outline: none;
+        background: white;
+        min-width: 220px;
+        cursor: pointer;
+    }
+
+    .select-estado:focus {
+        border-color: #1d4ed8;
+        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.10);
+    }
+
     .status-box {
         margin-top: 22px;
         padding: 16px;
@@ -90,6 +113,26 @@
     .status-realizado {
         background: #dcfce7;
         color: #166534;
+    }
+
+    .status-revision {
+        background: #cffafe;
+        color: #164e63;
+    }
+
+    .status-asignado {
+        background: #ede9fe;
+        color: #4c1d95;
+    }
+
+    .status-proceso {
+        background: #ffedd5;
+        color: #7c2d12;
+    }
+
+    .status-rechazado {
+        background: #fee2e2;
+        color: #7f1d1d;
     }
 
     .observacion-card,
@@ -259,7 +302,59 @@
     transform: translateY(-2px);
 }
 
+@media print {
+    /* Ocultar sidebar, topbar, botones y formularios */
+    .sidebar,
+    .topbar,
+    .action-box,
+    .observacion-card,
+    .foto-card form,
+    .whatsapp-card,
+    .btn-action,
+    .btn-save,
+    .btn-mapa,
+    .select-estado,
+    .file-control,
+    .footer,
+    .menu-toggle {
+        display: none !important;
+    }
 
+    /* El contenido ocupa toda la hoja */
+    .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+
+    body, .layout {
+        background: white !important;
+    }
+
+    .detail-card {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    .detail-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    .imagenes-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* Encabezado de impresión */
+    .detail-card::before {
+        content: "Detalle del Reporte — Sistema de Reporte Urbano";
+        display: block;
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 18px;
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 10px;
+    }
+}
 </style>
 {% endblock %}
 
@@ -365,30 +460,38 @@
     </div>
 
     {% if reporte.estado == 'Pendiente' %}
-        <div class="status-box status-pendiente">
-            Este reporte aún se encuentra pendiente de resolución.
-        </div>
-
-        <div class="action-box">
-            <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="estado" value="Realizado">
-                <button type="submit" class="btn-action btn-realizado">Marcar como realizado</button>
-            </form>
-        </div>
+        {% set estado_clase = 'status-pendiente' %}
+    {% elif reporte.estado == 'En revisi\u00f3n' %}
+        {% set estado_clase = 'status-revision' %}
+    {% elif reporte.estado == 'Asignado' %}
+        {% set estado_clase = 'status-asignado' %}
+    {% elif reporte.estado == 'En proceso' %}
+        {% set estado_clase = 'status-proceso' %}
+    {% elif reporte.estado == 'Realizado' %}
+        {% set estado_clase = 'status-realizado' %}
     {% else %}
-        <div class="status-box status-realizado">
-            Este reporte ya fue marcado como realizado.
-        </div>
-
-        <div class="action-box">
-            <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="estado" value="Pendiente">
-                <button type="submit" class="btn-action btn-pendiente">Volver a pendiente</button>
-            </form>
-        </div>
+        {% set estado_clase = 'status-rechazado' %}
     {% endif %}
+
+    <div class="status-box {{ estado_clase }}">
+        Estado actual: <strong>{{ reporte.estado }}</strong>
+    </div>
+
+    <div class="action-box">
+        <form method="POST" action="{{ url_for('cambiar_estado', reporte_id=reporte.id) }}" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="estado" style="font-size:14px; font-weight:600; color:#334155;">Cambiar estado:</label>
+            <select id="estado" name="estado" class="select-estado">
+                <option value="Pendiente" {% if reporte.estado == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="En revisi\u00f3n" {% if reporte.estado == 'En revisi\u00f3n' %}selected{% endif %}>En revisi\u00f3n</option>
+                <option value="Asignado" {% if reporte.estado == 'Asignado' %}selected{% endif %}>Asignado</option>
+                <option value="En proceso" {% if reporte.estado == 'En proceso' %}selected{% endif %}>En proceso</option>
+                <option value="Realizado" {% if reporte.estado == 'Realizado' %}selected{% endif %}>Realizado</option>
+                <option value="Rechazado / No corresponde" {% if reporte.estado == 'Rechazado / No corresponde' %}selected{% endif %}>Rechazado / No corresponde</option>
+            </select>
+            <button type="submit" class="btn-action btn-save-estado">Actualizar estado</button>
+        </form>
+    </div>
 
     <div class="foto-card">
         <h3>Subir foto de solución</h3>

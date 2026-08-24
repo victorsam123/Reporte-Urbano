@@ -33,6 +33,28 @@
             color: var(--color-texto);
         }
 
+        .acceso-administrativo {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 20;
+            padding: 13px 18px;
+            border-radius: 12px;
+            background: var(--color-primario);
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+            transition: transform .2s ease, background .2s ease;
+        }
+
+        .acceso-administrativo:hover,
+        .acceso-administrativo:focus-visible {
+            background: var(--color-secundario);
+            transform: translateY(-2px);
+        }
+
         .hero {
             background: linear-gradient(135deg, #0f172a, #1d4ed8);
             color: white;
@@ -491,6 +513,26 @@
             color: #065f46;
         }
 
+        .estado-badge.revision {
+            background: #cffafe;
+            color: #164e63;
+        }
+
+        .estado-badge.asignado {
+            background: #ede9fe;
+            color: #4c1d95;
+        }
+
+        .estado-badge.proceso {
+            background: #ffedd5;
+            color: #7c2d12;
+        }
+
+        .estado-badge.rechazado {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
         .detalle-reporte {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -923,7 +965,18 @@
         const estadoSeguro = escapeHtml(reporte.estado);
 
         // Determinar clase CSS para el estado
-        const claseEstado = reporte.estado === 'Realizado' ? 'realizado' : 'pendiente';
+        function claseParaEstado(estado) {
+            const mapa = {
+                'Pendiente': 'pendiente',
+                'En revisi\u00f3n': 'revision',
+                'Asignado': 'asignado',
+                'En proceso': 'proceso',
+                'Realizado': 'realizado',
+                'Rechazado / No corresponde': 'rechazado'
+            };
+            return mapa[estado] || 'pendiente';
+        }
+        const claseEstado = claseParaEstado(reporte.estado);
 
         let html = `
             <div>
@@ -1250,5 +1303,8 @@
         );
     }
 </script>
+    <a class="acceso-administrativo" href="{{ url_for('login') }}">
+        Acceso administrativo
+    </a>
 </body>
 </html>

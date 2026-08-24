@@ -2,7 +2,7 @@
 
 {% block title %}Reportes Realizados{% endblock %}
 {% block page_title %}Reportes Realizados{% endblock %}
-{% block page_subtitle %}Casos ya finalizados dentro del sistema{% endblock %}
+{% block page_subtitle %}Casos finalizados y rechazados del sistema{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -64,6 +64,11 @@
     .badge-realizado {
         background: #dcfce7;
         color: #166534;
+    }
+
+    .badge-rechazado {
+        background: #fee2e2;
+        color: #7f1d1d;
     }
 
     .badge-critica {
@@ -147,7 +152,13 @@
                             <span class="badge badge-baja">Baja</span>
                         {% endif %}
                     </td>
-                    <td><span class="badge badge-realizado">Realizado</span></td>
+                    <td>
+                        {% if reporte.estado == 'Realizado' %}
+                            <span class="badge badge-realizado">Realizado</span>
+                        {% else %}
+                            <span class="badge badge-rechazado">Rechazado</span>
+                        {% endif %}
+                    </td>
                     <td>{{ reporte.fecha }}</td>
                     <td>{{ reporte.fecha_finalizacion }}</td>
                     <td>

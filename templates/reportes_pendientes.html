@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Reportes Pendientes{% endblock %}
 {% block page_title %}Reportes Pendientes{% endblock %}
-{% block page_subtitle %}Casos que todavía requieren atención o seguimiento{% endblock %}
+{% block page_subtitle %}Casos activos que requieren atenci&oacute;n o seguimiento{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -64,6 +64,21 @@
     .badge-pendiente {
         background: #fef3c7;
         color: #92400e;
+    }
+
+    .badge-revision {
+        background: #cffafe;
+        color: #164e63;
+    }
+
+    .badge-asignado {
+        background: #ede9fe;
+        color: #4c1d95;
+    }
+
+    .badge-proceso {
+        background: #ffedd5;
+        color: #7c2d12;
     }
 
     .badge-critica {
@@ -146,7 +161,17 @@
                             <span class="badge badge-baja">Baja</span>
                         {% endif %}
                     </td>
-                    <td><span class="badge badge-pendiente">Pendiente</span></td>
+                    <td>
+                        {% if reporte.estado == 'Pendiente' %}
+                            <span class="badge badge-pendiente">Pendiente</span>
+                        {% elif reporte.estado == 'En revisi\u00f3n' %}
+                            <span class="badge badge-revision">En revisi\u00f3n</span>
+                        {% elif reporte.estado == 'Asignado' %}
+                            <span class="badge badge-asignado">Asignado</span>
+                        {% else %}
+                            <span class="badge badge-proceso">En proceso</span>
+                        {% endif %}
+                    </td>
                     <td>{{ reporte.fecha }}</td>
                     <td>
                         <a href="{{ url_for('detalle_reporte', reporte_id=reporte.id) }}" class="btn-view">Ver detalle</a>
