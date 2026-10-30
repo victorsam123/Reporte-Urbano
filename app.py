@@ -23,10 +23,12 @@ from urllib.parse import quote, urlencode
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+if not os.environ.get("SECRET_KEY"):
+    print("ADVERTENCIA: SECRET_KEY no definida; las sesiones se cerrarán en cada reinicio.")
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER") or os.path.join(BASE_DIR, "static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -84,6 +86,7 @@ def obtener_conexion():
             password=DB_CONFIG["password"],
             dbname=DB_CONFIG["database"],
             port=DB_CONFIG["port"],
+            connect_timeout=10,
             cursor_factory=RealDictCursor
         )
         print("Conexión correcta con PostgreSQL")
@@ -324,19 +327,22 @@ def inicializar_bd():
     admin_existente = cursor.fetchone()
 
     if not admin_existente:
-        password_inicial_admin = os.environ.get("ADMIN_PASSWORD", "Admin@2026!")
-        password_hash = generate_password_hash(password_inicial_admin)
-        cursor.execute("""
-            INSERT INTO usuarios (nombre, usuario, password, rol, activo)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            "Administrador General",
-            "admin",
-            password_hash,
-            "admin",
-            True
-        ))
-        conexion.commit()
+        password_inicial_admin = os.environ.get("ADMIN_PASSWORD")
+        if not password_inicial_admin:
+            print("ADVERTENCIA: ADMIN_PASSWORD no definida; no se crea el usuario admin inicial.")
+        else:
+            password_hash = generate_password_hash(password_inicial_admin)
+            cursor.execute("""
+                INSERT INTO usuarios (nombre, usuario, password, rol, activo)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                "Administrador General",
+                "admin",
+                password_hash,
+                "admin",
+                True
+            ))
+            conexion.commit()
 
     cursor.execute("SELECT id, tipo, prioridad FROM reportes")
     reportes_existentes = cursor.fetchall()
@@ -489,6 +495,16 @@ def actualizar_usuario_admin_db(usuario_id, nombre, usuario, rol, activo):
     cursor = conexion.cursor()
 
     try:
+        if rol != "admin" or not activo:
+            cursor.execute("SELECT rol, activo FROM usuarios WHERE id = %s", (usuario_id,))
+            actual = cursor.fetchone()
+            if actual and actual["rol"] == "admin" and actual["activo"]:
+                cursor.execute("SELECT COUNT(*) AS n FROM usuarios WHERE rol = 'admin' AND activo = TRUE AND id <> %s", (usuario_id,))
+                if cursor.fetchone()["n"] == 0:
+                    cursor.close()
+                    conexion.close()
+                    return False, "Debe existir al menos un administrador activo."
+
         cursor.execute("""
             SELECT id FROM usuarios
             WHERE usuario = %s AND id <> %s
@@ -563,6 +579,14 @@ def eliminar_usuario_admin_db(usuario_id):
         return False, "No se pudo conectar con la base de datos."
 
     cursor = conexion.cursor()
+    cursor.execute("SELECT rol, activo FROM usuarios WHERE id = %s", (usuario_id,))
+    objetivo = cursor.fetchone()
+    if objetivo and objetivo["rol"] == "admin" and objetivo["activo"]:
+        cursor.execute("SELECT COUNT(*) AS n FROM usuarios WHERE rol = 'admin' AND activo = TRUE AND id <> %s", (usuario_id,))
+        if cursor.fetchone()["n"] == 0:
+            cursor.close()
+            conexion.close()
+            return False, "No se puede eliminar al último administrador activo."
     cursor.execute("DELETE FROM usuarios WHERE id = %s", (usuario_id,))
     conexion.commit()
     filas = cursor.rowcount
